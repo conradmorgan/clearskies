@@ -1,0 +1,38 @@
+{{if .Upload.Id}}
+    {{if .Session.Admin}}
+    <script src="/tagging.js"></script>
+    <button id="addTag">Add Tag</button>
+    <button id="autoTagger" style="display: inline-block">Auto Tagger</button><br>
+    <span>Magnitude: </span><span id="magText">9.0</span><input id="magnitude" type="range" min="0.0" max="12.0" step="0.1" value="9.0" style="width: 320px">
+    <input id="isMirrored" type="checkbox">Mirror Image
+    {{end}}
+    {{if and (not .Upload.Approved) (eq .Upload.Author.Username .Session.Username)}}
+        <p style="color: green">
+            This image will become publicly available on the <a href="/">homepage</a> and in your <a href="/user/{{.Session.Username}}">public profile</a> once it has been approved by an administrator.
+            It may be removed if it is not related to astronomy.
+            In the meantime, it is still accessible via a <a href="https://clearskies.space/view/{{.Upload.Id}}">direct link</a>.</p>
+    {{end}}
+    <h2 style="word-break: break-word">{{.Upload.Title}}</h2>
+    <h3>by <a href="/user/{{.Upload.Author.Username}}">{{.Upload.Author.Username}}</a></h3>
+    <!--a href="/uploads/{{.Upload.Id}}"-->
+    <div id="image" style="overflow: hidden; position: relative">
+        <img src="/uploads/{{.Upload.Id}}" style="max-width: 100%">
+    </div>
+    <!--/a-->
+    <p style="word-break: break-word; white-space: pre-wrap">{{.Upload.Description}}</p>
+    {{if eq .Session.Username .Upload.Author.Username}}
+        <a href="/edit/{{.Upload.Id}}"><button style="width: 80px; height: 40px;">Edit</button></a>
+    {{end}}
+    {{if or .Session.Admin (eq .Session.Username .Upload.Author.Username)}}
+        <form style="display: inline-block" method="post" action="/delete/{{.Upload.Id}}" onsubmit="return confirm('Are you sure you want to delete this image?');">
+            <input style="width: 80px; height: 40px" type="submit" value="Delete">
+        </form>
+    {{end}}
+    {{if and .Session.Admin (not .Upload.Approved)}}
+        <form method="post" action="/approve/{{.Upload.Id}}">
+            <input style="width: 80px; height: 40px;" type="submit" value="Approve">
+        </form>
+    {{end}}
+{{else}}
+    <p>Nothing here!</p>
+{{end}}

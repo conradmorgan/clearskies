@@ -1,0 +1,15 @@
+{{if .Session.SignedIn}}
+    {{if .Session.Verified}}
+        <form method="post" action="/upload" enctype="multipart/form-data">
+            <input style="color: #fff" type="file" name="file"><br>
+            <input style="width: 500px" type="text" name="title" placeholder="Title" maxlength="255"><br><br>
+            <textarea style="width: 500px; height: 250px; color: #000" name="description" placeholder="Description" maxlength="4095"></textarea><br><br>
+            <input type="submit" onclick="$('*').css('cursor', 'wait');" style="width: 100px; height: 50px; margin-top: -8px" value="Upload"><br><br>
+            <div class="g-recaptcha" data-sitekey="6LequCkTAAAAAGPLcAH6e_JPL2d9MqMHak61wPgg"></div>
+        </form>
+    {{else}}
+        <p>Please confirm your email address before uploading.</p>
+    {{end}}
+{{else}}
+    <p>Please <a href="/login">Log in</a> to upload.</p>
+{{end}}

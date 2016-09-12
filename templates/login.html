@@ -1,0 +1,16 @@
+<script src="/sjcl.js"></script>
+<script src="/auth.js"></script>
+{{if .Notice}}<p style="color: green">{{.Notice}}</p>{{end}}
+<form id="loginForm" method="post" action="/login" style="max-width: 400px">
+    <div class="form-group">
+        <label class="control-label" for="username">Username or Email</label>
+        <input id="username" name="username" type="text" class="form-control" placeholder="Username Or Email" maxlength="255" autofocus>
+    </div>
+    <div class="form-group">
+        <label class="control-label" for="password">Password</label>
+        <input id="password" name="password" type="password" class="form-control" placeholder="Password">
+    </div>
+    <button id="loginButton" type="submit">Login</button><br><br>
+    <p>Don't have an account? <a href="/signup">Sign up here</a>!</p>
+    <a href="/recover">Forgot password?</a>
+</form>

@@ -1,0 +1,22 @@
+<script src="/sjcl.js"></script>
+<script src="/auth.js"></script>
+<form id="signupForm" method="post" action="/signup" style="max-width: 400px">
+    <div class="form-group">
+        <label class="control-label" for="username">Username</label>
+        <input class="form-control" id="username" type="text" maxlength="30" placeholder="Username" autofocus>
+    </div>
+    <div class="form-group">
+        <label class="control-label" for="email">Email</label>
+        <input class="form-control" id="email" type="text" maxlength="255" placeholder="Email">
+    </div>
+    <div class="form-group">
+        <label class="control-label" for="password">Password</label>
+        <input class="form-control" id="password" type="password" placeholder="Password">
+    </div>
+    <div class="form-group">
+        <label class="control-label" for="confirmPassword">Confirm Password</label>
+        <input class="form-control" id="confirmPassword" type="password" placeholder="Password">
+    </div>
+    <button id="signupButton" type="submit">Signup</button><br><br>
+    <p>Already have an account? <a href="/login">Login here</a>.</p>
+</form>

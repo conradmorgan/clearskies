@@ -1,0 +1,12 @@
+{{if .Session.SignedIn}}
+    <p>Welcome, {{.Session.Username}}!</p>
+{{end}}
+{{range $i, $upload:= .Uploads}}
+    {{if $upload.Approved}}
+        <div class="col-xs-6 col-sm-4 col-md-2">
+            <a href="/view/{{$upload.Id}}" class="thumbnail" title="{{$upload.Title}}">
+                <img class="img-rounded" src="/thumbnails/{{$upload.Id}}" alt="{{$upload.Title}}">
+            </a>
+        </div>
+    {{end}}
+{{end}}

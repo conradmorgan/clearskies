@@ -1,0 +1,14 @@
+{{if .User.Username}}
+    <h3>Uploads by {{.User.Username}}</h3>
+    {{range $i, $upload:= .Uploads}}
+        {{if $upload.Approved}}
+            <div class="col-xs-6 col-sm-4 col-md-2">
+                <a href="/view/{{$upload.Id}}" class="thumbnail" title="{{$upload.Title}}">
+                    <img class="img-rounded" width="100%" src="/thumbnails/{{$upload.Id}}" alt="{{$upload.Title}}">
+                </a>
+            </div>
+        {{end}}
+    {{end}}
+{{else}}
+    <p>Nobody here!</p>
+{{end}}

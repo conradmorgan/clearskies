@@ -181,8 +181,6 @@ func main() {
 		Methods("GET")
 	router.HandleFunc("/signup", signupPageHandler).
 		Methods("GET")
-	router.HandleFunc("/tags/{Id:[a-zA-Z0-9]+}", getTagsHandler).
-		Methods("GET")
 	router.HandleFunc("/thumbnails/{Id:[a-zA-Z0-9]+}", thumbnailHandler).
 		Methods("GET")
 	router.HandleFunc("/upload", uploadPageHandler).
@@ -345,6 +343,9 @@ func viewPageHandler(w http.ResponseWriter, r *http.Request) {
 	upload.FormatedDate = formatDate(upload.PostedAt)
 	user := User{}
 	db.Get(&user, "SELECT key FROM users WHERE username = $1", session.Values["Username"])
+	tags := []Tag{}
+	db.Select(&tags, "SELECT * FROM tags WHERE upload_id = $1", mux.Vars(r)["Id"])
+	tagData, _ := json.Marshal(tags)
 	p := Page{
 		Title: upload.Title,
 		File:  "view.html",
@@ -353,12 +354,14 @@ func viewPageHandler(w http.ResponseWriter, r *http.Request) {
 			Count    int
 			CSRF     string
 			Comments []Comment
+			Tags     template.JS
 			Session  map[interface{}]interface{}
 		}{
 			upload,
 			count,
 			string(deriveExpiryCode("CSRF", 0, fromHex(user.Key))),
 			comments,
+			template.JS(tagData),
 			session.Values,
 		},
 	}

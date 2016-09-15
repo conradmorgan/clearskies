@@ -46,14 +46,6 @@ func clearTagsHandler(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM tags WHERE upload_id = $1", upload.Id)
 }
 
-func getTagsHandler(w http.ResponseWriter, r *http.Request) {
-	tags := []Tag{}
-	db.Select(&tags, "SELECT * FROM tags WHERE upload_id = $1", mux.Vars(r)["Id"])
-	data, _ := json.Marshal(tags)
-	w.Header().Set("content-Type", "application/json")
-	w.Write(data)
-}
-
 func saveTagsHandler(w http.ResponseWriter, r *http.Request) {
 	upload := Upload{}
 	err := db.Get(&upload, "SELECT id, user_id FROM uploads WHERE id = $1", mux.Vars(r)["Id"])

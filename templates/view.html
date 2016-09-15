@@ -1,5 +1,8 @@
 {{if .Upload.Id}}
     <script src="/tagging.js"></script>
+    <script type="application/json" id="tags">
+        {{.Tags}}
+    </script>
     <div id="uploadId" style="display: none">{{.Upload.Id}}</div>
     {{if eq .Session.Username .Upload.Author.Username}}
         <button id="addTag">Add Tag</button>
@@ -28,9 +31,9 @@
     </p>
     <p>{{.Count}} view{{if gt .Count 1}}s{{end}}</p>
     <!--a href="/uploads/{{.Upload.Id}}"-->
-    <div id="image" style="position: relative; overflow: hidden; display: inline-block">
-        <img src="/uploads/{{.Upload.Id}}" style="max-width: 100%">
-    </div>
+        <div id="image" style="position: relative; overflow: hidden; display: inline-block">
+            <img src="/uploads/{{.Upload.Id}}" style="max-width: 100%">
+        </div>
     <!--/a-->
     <p style="word-break: break-word; white-space: pre-wrap">{{.Upload.Description}}</p>
     {{if eq .Session.Username .Upload.Author.Username}}

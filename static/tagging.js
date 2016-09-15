@@ -3,14 +3,11 @@ $(document).ready(function() {
         x: 0,
         y: 0
     }
-    var alignmentPoints = [];
-    var objects = [];
-    var drawCircle = function(radius, id) {
+    var drawCircle = function(radius) {
         if (radius < 7) {
             radius = 7;
         }
         var canvas = document.createElement("canvas");
-        canvas.setAttribute("id", id);
         canvas.width = radius * 2;
         canvas.height = radius * 2;
         var context = canvas.getContext("2d");
@@ -23,52 +20,89 @@ $(document).ready(function() {
         context.stroke();
         context.fill();
         $('#image').append(canvas);
-        $('#'+id).css("position", "absolute")
-            .css("pointer-events", "none");
-        return $('#'+id);
+        $(canvas).css("position", "absolute")
+                 .css("pointer-events", "none");
+        return canvas;
     };
-    var retrievedTags = [];
-    $.ajax({
-        method: "GET",
-        url: "/tags/" + $('#uploadId').text(),
-        dataType: "json",
-        success: function(tags) {
-            retrievedTags = tags;
-            for (var i = 0; i < tags.length; i++) {
-                var w = $('#image').width();
-                var radius = w * tags[i].Radius;
-                var tag = drawCircle(radius, "tagCircle"+i);
-                var x = w * tags[i].X;
-                var y = w * tags[i].Y;
-                tag.hide()
-                   .css("left", x - radius)
-                   .css("top", y - radius)
-                   .width(radius * 2)
-                   .height(radius * 2);
-                var nx = Math.cos(tags[i].LabelAngle / 180 * Math.PI);
-                var ny = Math.sin(tags[i].LabelAngle / 180 * Math.PI);
-                var ox = radius * nx;
-                var oy = radius * ny;
-                var label = document.createElement("p");
-                label.setAttribute("id", "tagLabel"+i);
-                $('#image').append(label);
-                label = $('#tagLabel'+i);
-                $('#tagLabel'+i).hide()
-                    .text(tags[i].Tag)
-                    .css("position", "absolute")
-                    .css("color", "#0F0")
-                    .css("word-break", "break-word")
-                    .css("text-shadow", "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000")
-                    .css("font-weight", "bold")
-                    .css("z-index", 100)
-                    .css("left", x + (nx-1)*$('#tagLabel'+i).width()/2 + ox*1.01)
-                    .css("top", y + (ny-1)*$('#tagLabel'+i).height()/2 + oy*1.01);
-                tags[i].Circle = tag;
-                tags[i].Label = $('#tagLabel'+i);
-            }
+    var Tag = function(radius, label) {
+        this.radius = radius;
+        this.circle = drawCircle(radius);
+        this.label = document.createElement("p");
+        $(this.label).text(label);
+        $('#image').append(this.label);
+        $(this.label).css("position", "absolute")
+                     .css("color", "#0F0")
+                     .css("word-break", "break-word")
+                     .css("text-shadow", "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000")
+                     .css("font-weight", "bold")
+                     .css("z-index", 100);
+        this.labelAngle = 0;
+        this.x = 0;
+        this.y = 0;
+        $(window).resize(this._updateRadius);
+        this.realX = function() {
+            return this.x * $('#image').width();
         }
-    });
+        this.realY = function() {
+            return this.y * $('#image').width();
+        }
+        this.getNormalizedRadius = function() {
+            return this.radius / $('#image').width();
+        };
+        this.setPosition = function(x, y) {
+            this.x = x;
+            this.y = y;
+            this._updatePosition();
+        }
+        this.setRealPosition = function(x, y) {
+            this.x = x / $('#image').width();
+            this.y = y / $('#image').width();
+            this._updatePosition();
+        };
+        this.setLabel = function(text) {
+            $(this.label).text(text);
+            this._updatePosition();
+        };
+        this.setRadius = function(radius) {
+            this.radius = radius;
+            this._updateRadius();
+        };
+        this.setLabelAngle = function(angle) {
+            this.labelAngle = angle;
+            this._updatePosition();
+        };
+        this._updatePosition = function() {
+            var nx = Math.cos(this.labelAngle / 180 * Math.PI);
+            var ny = Math.sin(this.labelAngle / 180 * Math.PI);
+            var ox = this.radius * nx;
+            var oy = this.radius * ny;
+            $(this.circle).css("left", this.realX() - $(this.circle).height()/2)
+                          .css("top", this.realY() - $(this.circle).width()/2);
+            $(this.label).css("left", this.realX() + (nx-1)*$(this.label).width()/2 + ox*1.01)
+                         .css("top", this.realY() + (ny-1)*$(this.label).height()/2 + oy*1.01);
+        };
+        this._updateRadius = function() {
+            var id = $(this.circle).attr("id");
+            var crosshair = ($(this.circle).css("cursor") == "crosshair");
+            $(this.circle).remove();
+            this.circle = drawCircle(this.radius, id);
+            if (crosshair) {
+                $(this.circle).css("cursor", "crosshair");
+            }
+            this._updatePosition();
+        }
+        return this;
+    };
+    var rawTags = JSON.parse(document.getElementById("tags").innerHTML);
     var tags = [];
+    for (var i = 0; i < rawTags.length; i++) {
+        var tag = new Tag(rawTags[i].Radius*$('#image').width(), rawTags[i].Tag);
+        $(tag.circle).hide();
+        $(tag.label).hide();
+        tag.setPosition(rawTags[i].X, rawTags[i].Y);
+        tag.setLabelAngle(rawTags[i].LabelAngle);
+        tags.push(tag);
+    }
     var createCrosshair = function() {
         var obj = {
             hline: document.createElement("div"),
@@ -99,123 +133,117 @@ $(document).ready(function() {
         }
     });
     $('#saveTags').click(function() {
+        var tagsToSend = [];
+        for (var i = 0; i < userTags.length; i++) {
+            tagsToSend.push({
+                Tag: $(userTags[i].label).text(),
+                Radius: userTags[i].radius / $('#image').width(),
+                LabelAngle: userTags[i].labelAngle,
+                X: userTags[i].x,
+                Y: userTags[i].y
+            });
+        }
         $.ajax({
             method: "POST",
             url: "/savetags/" + $('#uploadId').text(),
-            data: JSON.stringify(tags),
+            data: JSON.stringify(tagsToSend),
             success: function() {
                 location.reload();
             }
         });
 
     });
-    var taggingMode = "none";
+    var userTags = [];
     $('#addTag').click(function() {
-        taggingMode = "selecting";
         var objectId = prompt("Enter name of object to tag.", "");
         if (!objectId) {
             return;
         }
-        var mouseText = document.createElement("p");
-        mouseText.setAttribute("id", "mouseText");
-        $('#image').append(mouseText);
-        $('#mouseText').text(objectId)
-            .css("position", "absolute")
-            .css("color", "#0F0")
-            .css("word-break", "break-word")
-            .css("text-shadow", "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000")
-            .css("font-weight", "bold")
-            .css("cursor", "crosshair")
-            .css("z-index", 100)
-            .css("pointer-events", "none");
-        $('#image').css("cursor", "crosshair");
-        var circle = drawCircle(25, "circle");
-        circle.css("cursor", "crosshair");
+        var tag = new Tag(25, objectId);
+        $(tag.circle).css("cursor", "crosshair");
+        $(tag.label).css("cursor", "crosshair");
         var c = createCrosshair();
         $('body').mousemove(function(e) {
             var imgX = $('#image').offset().left;
             var imgY = $('#image').offset().top;
-            $(c.hline).css("top", e.pageY - imgY);
-            $(c.vline).css("left", e.pageX - imgX);
-            mousePos.x = e.pageX;
-            mousePos.y = e.pageY;
-            $('#mouseText').css("top", e.pageY - imgY + 15);
-            $('#mouseText').css("left", e.pageX - imgX + 15);
-            circle.css("top", e.pageY - imgY - 25);
-            circle.css("left", e.pageX - imgX - 25);
+            mousePos.x = e.pageX - imgX;
+            mousePos.y = e.pageY - imgY;
+            $(c.hline).css("top", mousePos.y);
+            $(c.vline).css("left", mousePos.x);
+            tag.setRealPosition(mousePos.x, mousePos.y);
         });
         var dragPosX = 0;
         var dragPosY = 0;
+        taggingMode = "positioning";
         $('#image').click(function() {
-            if (taggingMode == "selecting") {
+            switch (taggingMode) {
+            case "positioning":
                 taggingMode = "resizing";
                 $(c.hline).remove();
                 $(c.vline).remove();
                 $('body').unbind("mousemove");
                 $('body').mousemove(function(e) {
-                    mousePos.x = e.pageX;
-                    mousePos.y = e.pageY;
-                    var x = tags[tags.length-1].x*$('#image').width();
-                    var y = tags[tags.length-1].y*$('#image').width();
-                    var ox = e.pageX - ($('#image').offset().left + x);
-                    var oy = e.pageY - ($('#image').offset().top + y);
-                    var radius = Math.sqrt(ox*ox + oy*oy);
-                    circle.remove();
-                    circle = drawCircle(radius, "circle");
-                    circle.css("left", x - radius);
-                    circle.css("top", y - radius);
-                    var nx = ox / radius;
-                    var ny = oy / radius;
-                    $('#mouseText').css("left", x + (nx-1)*$('#mouseText').width()/2 + ox*1.01)
-                                   .css("top", y + (ny-1)*$('#mouseText').height()/2 + oy*1.01);
-                    tags[tags.length-1].labelAngle = Math.atan2(oy, ox) / Math.PI * 180;
-                    tags[tags.length-1].radius = radius / $('#image').width();
+                    mousePos.x = e.pageX - $('#image').offset().left;
+                    mousePos.y = e.pageY - $('#image').offset().top;
+                    var ox = mousePos.x - tag.realX();
+                    var oy = mousePos.y - tag.realY();
+                    tag.setRadius(Math.sqrt(ox*ox + oy*oy));
+                    tag.setLabelAngle(Math.atan2(oy, ox) / Math.PI * 180);
                 });
-                tags.push({
-                    tag: objectId,
-                    x: (mousePos.x - $('#image').offset().left) / $('#image').width(),
-                    y: (mousePos.y - $('#image').offset().top) / $('#image').width()
-                });
-            } else if (taggingMode == "resizing") {
-                dragPosX = mousePos.x - $('#image').offset().left - tags[tags.length-1].x*$('#image').width();
-                dragPosY = mousePos.y - $('#image').offset().top - tags[tags.length-1].y*$('#image').width();
-                taggingMode = "moving";
+                break;
+            case "resizing":
+                taggingMode = "placing";
+                dragPosX = mousePos.x - tag.realX();
+                dragPosY = mousePos.y - tag.realY();
                 $('body').unbind("mousemove");
                 $('body').mousemove(function(e) {
-                    mousePos.x = e.pageX;
-                    mousePos.y = e.pageY;
-                    var imgX = $('#image').offset().left;
-                    var imgY = $('#image').offset().top;
-                    var x = e.pageX - imgX - dragPosX;
-                    var y = e.pageY - imgY - dragPosY;
-                    var radius = $('#image').width()*tags[tags.length-1].radius;
-                    circle.remove();
-                    circle = drawCircle(radius, "circle");
-                    circle.css("left", x - radius);
-                    circle.css("top", y - radius);
-                    var ox = radius*Math.cos(tags[tags.length-1].labelAngle / 180 * Math.PI);
-                    var oy = radius*Math.sin(tags[tags.length-1].labelAngle / 180 * Math.PI);
-                    var nx = ox / radius;
-                    var ny = oy / radius;
-                    $('#mouseText').css("left", x + (nx-1)*$('#mouseText').width()/2 + ox*1.01)
-                                   .css("top", y + (ny-1)*$('#mouseText').height()/2 + oy*1.01);
-                    tags[tags.length-1].labelAngle = Math.atan2(oy, ox) / Math.PI * 180;
-                    tags[tags.length-1].radius = radius / $('#image').width();
-                    tags[tags.length-1].x = x / $('#image').width();
-                    tags[tags.length-1].y = y / $('#image').width();
+                    mousePos.x = e.pageX - $('#image').offset().left;
+                    mousePos.y = e.pageY - $('#image').offset().top;
+                    tag.setRealPosition(mousePos.x - dragPosX, mousePos.y - dragPosY);
                 });
-            } else if (taggingMode == "moving") {
-                $('#saveTags').show();
-                $('#mouseText').attr("id", "manualTagName" + (tags.length-1));
-                circle.attr("id", "manualTagHighlight" + (tags.length-1));
-                $('#image').unbind("click");
+                break;
+            case "placing":
                 $('body').unbind("mousemove");
-                if (alignmentPoints.length >= 2) {
-                    console.log(alignmentPoints);
-                }
+                $('#image').unbind("click");
+                $('#saveTags').show();
+                userTags.push(tag);
+                break;
             }
         });
     });
+    $('#image').mouseenter(function() {
+        for (var i = 0; i < tags.length; i++) {
+            $(tags[i].circle).show();
+            $(tags[i].label).show();
+        }
+    });
+    $('#image').mouseleave(function() {
+        for (var i = 0; i < tags.length; i++) {
+            $(tags[i].circle).hide();
+            $(tags[i].label).hide();
+        }
+    });
+    /*
+    $(window).resize(function() {
+        for (var i = 0; i < alignmentPoints.length; i++) {
+            var text = $('#text'+(i+1));
+            var circle = $('#circle'+(i+1));
+            text.css("left", w * alignmentPoints[i].point.x + 15);
+            text.css("top", w * alignmentPoints[i].point.y + 15);
+            circle.css("left", w * alignmentPoints[i].point.x - 25);
+            circle.css("top", w * alignmentPoints[i].point.y - 25);
+        }
+        for (var i = 0; i < objects.length; i++) {
+            $('#tag'+i).css("left", w * objects[i].Point.X - 25);
+            $('#tag'+i).css("top", w * objects[i].Point.Y - 25);
+            $('#name'+i).css("left", w * objects[i].Point.X + 15);
+            $('#name'+i).css("top", w * objects[i].Point.Y + 15);
+        }
+    });
+    */
+    /*
+    var alignmentPoints = [];
+    var objects = [];
     $('#autoTagger').click(function() {
         if (alignmentPoints.length >= 2) {
             json = JSON.stringify({
@@ -243,7 +271,7 @@ $(document).ready(function() {
                         if (data[i].Dim) {
                             dim = data[i].Dim*$('#image').width() / 2;
                         }
-                        var tag = drawCircle(dim, "tag"+i);
+                        var tag = $(drawCircle(dim, "tag"+i));
                         tag.css("top", $('#image').width() * data[i].Point.Y - tag.height()/2);
                         tag.css("left", $('#image').width() * data[i].Point.X - tag.width()/2);
                         var text = document.createElement("p");
@@ -294,7 +322,7 @@ $(document).ready(function() {
         $('#mouseText').css("font-weight", "bold");
         $('#mouseText').css("cursor", "crosshair");
         $('#image').css("cursor", "crosshair");
-        var circle = drawCircle(25, "circle");
+        var circle = $(drawCircle(25, "circle"));
         circle.css("cursor", "crosshair");
         $('body').mousemove(function(e) {
             mousePos.x = e.pageX;
@@ -334,66 +362,5 @@ $(document).ready(function() {
             }
         }
     });
-    $(window).resize(function() {
-        var w = $('#image').width();
-        for (var i = 0; i < alignmentPoints.length; i++) {
-            var text = $('#text'+(i+1));
-            var circle = $('#circle'+(i+1));
-            text.css("left", w * alignmentPoints[i].point.x + 15);
-            text.css("top", w * alignmentPoints[i].point.y + 15);
-            circle.css("left", w * alignmentPoints[i].point.x - 25);
-            circle.css("top", w * alignmentPoints[i].point.y - 25);
-        }
-        for (var i = 0; i < objects.length; i++) {
-            $('#tag'+i).css("left", w * objects[i].Point.X - 25);
-            $('#tag'+i).css("top", w * objects[i].Point.Y - 25);
-            $('#name'+i).css("left", w * objects[i].Point.X + 15);
-            $('#name'+i).css("top", w * objects[i].Point.Y + 15);
-        }
-        for (var i = 0; i < tags.length; i++) {
-            var tag = $('#manualTagHighlight'+i);
-            var x = w * tags[i].x;
-            var y = w * tags[i].y;
-            var radius = w * tags[i].radius;
-            tag.css("left", x - tag.width()/2)
-               .css("top", y - tag.height()/2)
-               .width(radius * 2)
-               .height(radius * 2);
-            var nx = Math.cos(tags[i].labelAngle / 180 * Math.PI);
-            var ny = Math.sin(tags[i].labelAngle / 180 * Math.PI);
-            var ox = radius * nx;
-            var oy = radius * ny;
-            var label = $('#manualTagName'+i);
-            label.css("left", x + (nx-1)*label.width()/2 + ox*1.01)
-                 .css("top", y + (ny-1)*label.height()/2 + oy*1.01);
-        }
-        for (var i = 0; i < retrievedTags.length; i++) {
-            var x = w * retrievedTags[i].X;
-            var y = w * retrievedTags[i].Y;
-            var radius = w * retrievedTags[i].Radius;
-            retrievedTags[i].Circle.css("left", x - radius)
-                                   .css("top", y - radius)
-                                   .width(radius * 2)
-                                   .height(radius * 2);
-            var nx = Math.cos(retrievedTags[i].LabelAngle / 180 * Math.PI);
-            var ny = Math.sin(retrievedTags[i].LabelAngle / 180 * Math.PI);
-            var ox = radius * nx;
-            var oy = radius * ny;
-            var label = retrievedTags[i].Label;
-            label.css("left", x + (nx-1)*label.width()/2 + ox*1.01)
-                 .css("top", y + (ny-1)*label.height()/2 + oy*1.01);
-        }
-    });
-    $('#image').mouseenter(function() {
-        for (var i = 0; i < retrievedTags.length; i++) {
-            retrievedTags[i].Circle.show();
-            retrievedTags[i].Label.show();
-        }
-    });
-    $('#image').mouseleave(function() {
-        for (var i = 0; i < retrievedTags.length; i++) {
-            retrievedTags[i].Circle.hide();
-            retrievedTags[i].Label.hide();
-        }
-    });
+    */
 });

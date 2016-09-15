@@ -26,7 +26,7 @@ $(document).ready(function() {
     };
     var Tag = function(radius, label) {
         this.radius = radius;
-        this.circle = drawCircle(radius);
+        this.circle = drawCircle(radius * $('#image').width());
         this.label = document.createElement("p");
         $(this.label).text(label);
         $('#image').append(this.label);
@@ -39,16 +39,12 @@ $(document).ready(function() {
         this.labelAngle = 0;
         this.x = 0;
         this.y = 0;
-        $(window).resize(this._updateRadius);
         this.realX = function() {
             return this.x * $('#image').width();
         }
         this.realY = function() {
             return this.y * $('#image').width();
         }
-        this.getNormalizedRadius = function() {
-            return this.radius / $('#image').width();
-        };
         this.setPosition = function(x, y) {
             this.x = x;
             this.y = y;
@@ -74,8 +70,8 @@ $(document).ready(function() {
         this._updatePosition = function() {
             var nx = Math.cos(this.labelAngle / 180 * Math.PI);
             var ny = Math.sin(this.labelAngle / 180 * Math.PI);
-            var ox = this.radius * nx;
-            var oy = this.radius * ny;
+            var ox = this.radius * nx * $('#image').width();
+            var oy = this.radius * ny * $('#image').width();
             $(this.circle).css("left", this.realX() - $(this.circle).height()/2)
                           .css("top", this.realY() - $(this.circle).width()/2);
             $(this.label).css("left", this.realX() + (nx-1)*$(this.label).width()/2 + ox*1.01)
@@ -85,7 +81,7 @@ $(document).ready(function() {
             var id = $(this.circle).attr("id");
             var crosshair = ($(this.circle).css("cursor") == "crosshair");
             $(this.circle).remove();
-            this.circle = drawCircle(this.radius, id);
+            this.circle = drawCircle(this.radius * $('#image').width(), id);
             if (crosshair) {
                 $(this.circle).css("cursor", "crosshair");
             }
@@ -96,7 +92,7 @@ $(document).ready(function() {
     var rawTags = JSON.parse(document.getElementById("tags").innerHTML);
     var tags = [];
     for (var i = 0; i < rawTags.length; i++) {
-        var tag = new Tag(rawTags[i].Radius*$('#image').width(), rawTags[i].Tag);
+        var tag = new Tag(rawTags[i].Radius, rawTags[i].Tag);
         $(tag.circle).hide();
         $(tag.label).hide();
         tag.setPosition(rawTags[i].X, rawTags[i].Y);
@@ -137,7 +133,7 @@ $(document).ready(function() {
         for (var i = 0; i < userTags.length; i++) {
             tagsToSend.push({
                 Tag: $(userTags[i].label).text(),
-                Radius: userTags[i].radius / $('#image').width(),
+                Radius: userTags[i].radius,
                 LabelAngle: userTags[i].labelAngle,
                 X: userTags[i].x,
                 Y: userTags[i].y
@@ -159,15 +155,13 @@ $(document).ready(function() {
         if (!objectId) {
             return;
         }
-        var tag = new Tag(25, objectId);
+        var tag = new Tag(25 / $('#image').width(), objectId);
         $(tag.circle).css("cursor", "crosshair");
         $(tag.label).css("cursor", "crosshair");
         var c = createCrosshair();
         $('body').mousemove(function(e) {
-            var imgX = $('#image').offset().left;
-            var imgY = $('#image').offset().top;
-            mousePos.x = e.pageX - imgX;
-            mousePos.y = e.pageY - imgY;
+            mousePos.x = e.pageX - $('#image').offset().left;
+            mousePos.y = e.pageY - $('#image').offset().top;
             $(c.hline).css("top", mousePos.y);
             $(c.vline).css("left", mousePos.x);
             tag.setRealPosition(mousePos.x, mousePos.y);
@@ -187,7 +181,7 @@ $(document).ready(function() {
                     mousePos.y = e.pageY - $('#image').offset().top;
                     var ox = mousePos.x - tag.realX();
                     var oy = mousePos.y - tag.realY();
-                    tag.setRadius(Math.sqrt(ox*ox + oy*oy));
+                    tag.setRadius(Math.sqrt(ox*ox + oy*oy) / $('#image').width());
                     tag.setLabelAngle(Math.atan2(oy, ox) / Math.PI * 180);
                 });
                 break;
@@ -223,6 +217,14 @@ $(document).ready(function() {
             $(tags[i].label).hide();
         }
     });
+    $(window).resize(function() {
+        for (var i = 0; i < tags.length; i++) {
+            tags[i]._updateRadius();
+        }
+        for (var i = 0; i < userTags.length; i++) {
+            userTags[i]._updateRadius();
+        }
+    });
     /*
     $(window).resize(function() {
         for (var i = 0; i < alignmentPoints.length; i++) {
@@ -240,8 +242,6 @@ $(document).ready(function() {
             $('#name'+i).css("top", w * objects[i].Point.Y + 15);
         }
     });
-    */
-    /*
     var alignmentPoints = [];
     var objects = [];
     $('#autoTagger').click(function() {

@@ -59,9 +59,49 @@ input, button {
     top: 50%;
     transform: translateY(-50%);
 }
+.navbar-form > input {
+    border: 1px solid #111;
+    padding: 5px;
+    background: #444;
+    color: #fff;
+    font-family: helvetica, sans-serif;
+    appearance: none;
+    box-shadow: 1px 1px 1px #333;
+}
+.comment {
+    background-color: #222;
+    color: #EEE;
+    width: 100%;
+    max-width: 500px;
+    padding: 8px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.comment-footer {
+    font-size: 11px;
+    color: #aaa;
+}
 </style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
 <script src='https://www.google.com/recaptcha/api.js'></script>
+<script>
+function localDate(d) {
+    d = new Date(d);
+    return d.toLocaleDateString([], {
+        year:   "numeric",
+        month:  "short",
+        day:    "2-digit",
+        hour:   "2-digit",
+        minute: "2-digit"
+    });
+}
+$(document).ready(function() {
+    $('span[id^=date]').each(function() {
+        $(this).text(localDate($(this).text()));
+        $(this).show();
+    });
+});
+</script>
 </head>
 <body>
     <div id="wrap">
@@ -84,6 +124,9 @@ input, button {
                         <li><a href="/signup">Sign up</a></li>
                     {{end}}
                     </ul>
+                    <form class="navbar-form" action="/" method="get">
+                        <input type="text" name="search" placeholder="Search">
+                    </form>
                 </div>
             </div>
         </div>

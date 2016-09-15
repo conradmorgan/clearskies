@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,7 +10,86 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
+
+type Tag struct {
+	UploadId   string  `db:"upload_id"`
+	Tag        string  `db:"tag"`
+	Radius     float64 `db:"radius"`
+	LabelAngle float64 `db:"label_angle"`
+	X          float64 `db:"x"`
+	Y          float64 `db:"y"`
+}
+
+func clearTagsHandler(w http.ResponseWriter, r *http.Request) {
+	upload := Upload{}
+	err := db.Get(&upload, "SELECT id, user_id FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
+	if err == sql.ErrNoRows {
+		log.Print("Save tags handler: Nonexistent upload: ", mux.Vars(r)["Id"])
+		w.WriteHeader(500)
+		return
+	} else if err != nil {
+		log.Print("Save tags handler: ", err)
+		w.WriteHeader(500)
+		return
+	}
+	session := getSession(r)
+	user := User{}
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", session.Values["Username"])
+	if upload.UserId != user.Id {
+		log.Print("Save tags handler: Prohibited")
+		w.WriteHeader(500)
+		return
+	}
+	db.Exec("DELETE FROM tags WHERE upload_id = $1", upload.Id)
+}
+
+func getTagsHandler(w http.ResponseWriter, r *http.Request) {
+	tags := []Tag{}
+	db.Select(&tags, "SELECT * FROM tags WHERE upload_id = $1", mux.Vars(r)["Id"])
+	data, _ := json.Marshal(tags)
+	w.Header().Set("content-Type", "application/json")
+	w.Write(data)
+}
+
+func saveTagsHandler(w http.ResponseWriter, r *http.Request) {
+	upload := Upload{}
+	err := db.Get(&upload, "SELECT id, user_id FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
+	if err == sql.ErrNoRows {
+		log.Print("Save tags handler: Nonexistent upload: ", mux.Vars(r)["Id"])
+		w.WriteHeader(500)
+		return
+	} else if err != nil {
+		log.Print("Save tags handler: ", err)
+		w.WriteHeader(500)
+		return
+	}
+	session := getSession(r)
+	user := User{}
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", session.Values["Username"])
+	if upload.UserId != user.Id {
+		log.Print("Save tags handler: Prohibited")
+		w.WriteHeader(500)
+		return
+	}
+	body, _ := ioutil.ReadAll(r.Body)
+	log.Print(string(body))
+	tags := []Tag{}
+	err = json.Unmarshal(body, &tags)
+	if err != nil {
+		log.Print("Save tags handler: ", err)
+		w.WriteHeader(500)
+		return
+	}
+	for _, tag := range tags {
+		db.Exec(`INSERT INTO tags (upload_id, tag, radius, label_angle, x, y)
+				 VALUES ($1, $2, $3, $4, $5, $6)`,
+			upload.Id, tag.Tag, tag.Radius, tag.LabelAngle, tag.X, tag.Y,
+		)
+	}
+}
 
 type AlignmentPoint struct {
 	ObjectId string
@@ -34,7 +114,7 @@ type CoordinateSystem struct {
 	IsMirrored      bool
 }
 
-type Tag struct {
+type AutoTag struct {
 	Name      string
 	Magnitude float64
 	Dim       float64
@@ -213,7 +293,7 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 		Data [][]interface{}
 	}{}
 	json.Unmarshal(body, &mData)
-	tags := []Tag{}
+	tags := []AutoTag{}
 	for i := range mData.Data {
 		obj := Object{
 			MainId:    mData.Data[i][0].(string),
@@ -232,7 +312,7 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			dim := c.RADecToImagePoint(RADec{galDim + origin.X, origin.Y})
 		*/
-		tags = append(tags, Tag{
+		tags = append(tags, AutoTag{
 			Name:      obj.MainId,
 			Magnitude: obj.Magnitude,
 			Point:     c.RADecToImagePoint(obj.RADec),
@@ -248,7 +328,7 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 				queryData.Data[i][3].(float64),
 			},
 		}
-		tags = append(tags, Tag{
+		tags = append(tags, AutoTag{
 			Name:      obj.MainId,
 			Magnitude: obj.Magnitude,
 			Point:     c.RADecToImagePoint(obj.RADec),

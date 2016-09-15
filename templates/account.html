@@ -1,9 +1,13 @@
 {{if .Session.SignedIn}}
     {{if not .Session.Verified}}
-    <p>Your email is not yet verified with us, please verify your email address by clicking the link sent to you from clearskies.space@gmail.com.</p>
-    <p>If you did not receive a link, check your spam folder or <a href="/sendverification">click here</a> to resend it.</p>
+        <p>Your email is not yet verified with us, please verify your email address by clicking the link sent to you from clearskies.space@gmail.com.</p>
+        <p>If you did not receive a link, check your spam folder or <a href="/sendverification">click here</a> to resend it.</p>
     {{end}}
     <p>Click <a href="/changepassword">here</a> to change your password.</p>
+    <form action="/account/save" method="post">
+        <input type="checkbox" name="commentNotify" value="true"{{if .CommentNotify}} checked{{end}}>Recieve email notifications for comments on my images<br>
+        <input type="submit" value="Save">
+    </form>
     <h3><u>Your Uploads</u></h3>
     {{range $i, $upload:= .Uploads}}
         <div class="col-xs-6 col-sm-4 col-md-2">

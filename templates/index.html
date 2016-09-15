@@ -1,11 +1,14 @@
-{{if .Session.SignedIn}}
+{{if and .Session.SignedIn (not .Query)}}
     <p>Welcome, {{.Session.Username}}!</p>
 {{end}}
-{{range $i, $upload:= .Uploads}}
-    {{if $upload.Approved}}
-        <div class="col-xs-6 col-sm-4 col-md-2">
-            <a href="/view/{{$upload.Id}}" class="thumbnail" title="{{$upload.Title}}">
-                <img class="img-rounded" src="/thumbnails/{{$upload.Id}}" alt="{{$upload.Title}}">
+{{range .Uploads}}
+    {{if and .Id .Approved}}
+        <div class="col-xs-6 col-sm-4 col-md-2" style="position: relative">
+            {{if $.Query}}
+            <p id="title" style="position: absolute; font-size: 11px; color: #666; z-index: 100">{{.Title}}</p>
+            {{end}}
+            <a id="thumb" href="/view/{{.Id}}" class="thumbnail" title="{{.Title}}">
+                <img class="img-rounded" src="/thumbnails/{{.Id}}" alt="{{.Title}}">
             </a>
         </div>
     {{end}}

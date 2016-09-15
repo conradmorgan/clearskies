@@ -14,12 +14,12 @@ $(document).ready( function() {
             passcode: ""
         };
         var password = $('#password').val();
-        if( password.length < 8 ){
+        if (password.length < 8) {
             alert("Password must be at least 8 characters long!");
             return
         }
         var confirmPassword = $('#confirmPassword').val();
-        if( password != confirmPassword){
+        if (password != confirmPassword){
             alert("Passwords do not match!");
             return;
         }
@@ -58,7 +58,7 @@ $(document).ready( function() {
     $('#loginButton').click(function ( event ) {
         event.preventDefault();
         var form = {
-            usernameOrEmail: $('#username').val(),
+            usernameOrEmail: $('#usernameOrEmail').val(),
         };
         var password = $('#password').val();
         $.ajax({

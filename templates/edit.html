@@ -2,8 +2,8 @@
 {{if eq .Session.Username .Upload.Author.Username}}
     <form method="post" action="/edit/{{.Upload.Id}}">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
-        <input style="width: 500px" type="text" name="title" placeholder="Title" maxlength="255" value="{{.Upload.Title}}"><br><br>
-        <textarea style="width: 500px; height: 250px; color: #000" name="description" placeholder="Description" maxlength="4095">{{.Upload.Description}}</textarea><br><br>
+        <input style="width: 100%; max-width: 500px" type="text" name="title" placeholder="Title" maxlength="255" value="{{.Upload.Title}}"><br><br>
+        <textarea style="width: 100%; max-width: 500px; resize: vertical; height: 250px; color: #000" name="description" placeholder="Description" maxlength="4095">{{.Upload.Description}}</textarea><br><br>
         <input type="submit" style="width: 100px; height: 50px; margin-top: -8px" value="Update"><br><br>
     </form>
 {{else}}

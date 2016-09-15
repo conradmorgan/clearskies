@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,23 +32,23 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
 	"golang.org/x/crypto/scrypt"
-	"golang.org/x/image/tiff"
 	"golang.org/x/image/webp"
 )
 
 var schema = `
 CREATE TABLE IF NOT EXISTS users (
-	id           serial       PRIMARY KEY,
-	username     citext       UNIQUE NOT NULL,
-	email        citext       NOT NULL,
-	full_name    varchar(100) NOT NULL,
-	hash         varchar(255) NOT NULL,
-	reset_token  varchar(255) NOT NULL,
-	key          varchar(255) NOT NULL,
-	created_at   timestamp    WITH TIME ZONE NOT NULL,
-	signed_up_at timestamp    WITH TIME ZONE NOT NULL,
-	verified_at  timestamp    WITH TIME ZONE NOT NULL,
-	admin        boolean      NOT NULL
+	id             serial       PRIMARY KEY,
+	username       citext       UNIQUE NOT NULL,
+	email          citext       NOT NULL,
+	full_name      varchar(100) NOT NULL,
+	hash           varchar(255) NOT NULL,
+	reset_token    varchar(255) NOT NULL,
+	key            varchar(255) NOT NULL,
+	created_at     timestamp    WITH TIME ZONE NOT NULL,
+	signed_up_at   timestamp    WITH TIME ZONE NOT NULL,
+	verified_at    timestamp    WITH TIME ZONE NOT NULL,
+	admin          boolean      NOT NULL,
+	comment_notify boolean NOT NULL
 );
 CREATE TABLE IF NOT EXISTS uploads (
 	id          varchar(22)   PRIMARY KEY,
@@ -56,30 +58,63 @@ CREATE TABLE IF NOT EXISTS uploads (
 	posted_at   timestamp     WITH TIME ZONE NOT NULL,
 	approved    boolean       NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tags (
+	upload_id   varchar(22) NOT NULL,
+	tag         citext      NOT NULL,
+	radius	    real        NOT NULL,
+	label_angle real        NOT NULL,
+	x           real        NOT NULL,
+	y           real        NOT NULL
+);
+CREATE TABLE IF NOT EXISTS view_counts (
+	upload_id  varchar(22) NOT NULL,
+	ip_address inet        NOT NULL,
+	UNIQUE (upload_id, ip_address)
+);
+CREATE TABLE IF NOT EXISTS comments (
+	id        serial        PRIMARY KEY,
+	user_id   integer       NOT NULL,
+	upload_id varchar(22)   NOT NULL,
+	comment   varchar(4095) NOT NULL,
+	posted_at timestamp     WITH TIME ZONE NOT NULL
+);
+CREATE INDEX IF NOT EXISTS view_counts_upload_id_index ON view_counts (upload_id);
 `
 
+type Comment struct {
+	Id           int       `db:"id"`
+	UserId       int       `db:"user_id"`
+	UploadId     string    `db:"upload_id"`
+	Comment      string    `db:"comment"`
+	PostedAt     time.Time `db:"posted_at"`
+	Author       User
+	FormatedDate string
+}
+
 type User struct {
-	Id         int       `db:"id"`
-	Username   string    `db:"username"`
-	Email      string    `db:"email"`
-	FullName   string    `db:"full_name"`
-	Hash       string    `db:"hash"`
-	ResetToken string    `db:"reset_token"`
-	Key        string    `db:"key"`
-	CreatedAt  time.Time `db:"created_at"`
-	SignedUpAt time.Time `db:"signed_up_at"`
-	VerifiedAt time.Time `db:"verified_at"`
-	Admin      bool      `db:"admin"`
+	Id            int       `db:"id"`
+	Username      string    `db:"username"`
+	Email         string    `db:"email"`
+	FullName      string    `db:"full_name"`
+	Hash          string    `db:"hash"`
+	ResetToken    string    `db:"reset_token"`
+	Key           string    `db:"key"`
+	CreatedAt     time.Time `db:"created_at"`
+	SignedUpAt    time.Time `db:"signed_up_at"`
+	VerifiedAt    time.Time `db:"verified_at"`
+	Admin         bool      `db:"admin"`
+	CommentNotify bool      `db:"comment_notify"`
 }
 
 type Upload struct {
-	Id          string    `db:"id"`
-	Title       string    `db:"title"`
-	UserId      int       `db:"user_id"`
-	Description string    `db:"description"`
-	PostedAt    time.Time `db:"posted_at"`
-	Approved    bool      `db:"approved"`
-	Author      User
+	Id           string    `db:"id"`
+	Title        string    `db:"title"`
+	UserId       int       `db:"user_id"`
+	Description  string    `db:"description"`
+	PostedAt     time.Time `db:"posted_at"`
+	Approved     bool      `db:"approved"`
+	Author       User
+	FormatedDate string
 }
 
 type Page struct {
@@ -111,13 +146,20 @@ func ip(r *http.Request) string {
 	return r.Header.Get("X-FORWARDED-FOR")
 }
 
+func formatDate(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05+00:00")
+}
+
 func main() {
+	log.Println("Booting up...")
 	rand.Seed(time.Now().UnixNano())
 	var err error
+	log.Printf("Connecting to database... ")
 	db, err = sqlx.Connect("postgres", "dbname=clearskies sslmode=disable")
 	if err != nil {
 		log.Print(err)
 	}
+	log.Printf("done!\n")
 	db.MustExec(schema)
 	router := mux.NewRouter()
 	router.HandleFunc("/", homePageHandler)
@@ -125,7 +167,7 @@ func main() {
 		Methods("GET")
 	router.HandleFunc("/changepassword", changePasswordPageHandler).
 		Methods("GET")
-	router.HandleFunc("/edit/{Id}", editPageHandler).
+	router.HandleFunc("/edit/{Id:[a-zA-Z0-9]+}", editPageHandler).
 		Methods("GET")
 	router.HandleFunc("/login", loginPageHandler).
 		Methods("GET")
@@ -139,7 +181,9 @@ func main() {
 		Methods("GET")
 	router.HandleFunc("/signup", signupPageHandler).
 		Methods("GET")
-	router.HandleFunc("/thumbnails/{Id}", thumbnailHandler).
+	router.HandleFunc("/tags/{Id:[a-zA-Z0-9]+}", getTagsHandler).
+		Methods("GET")
+	router.HandleFunc("/thumbnails/{Id:[a-zA-Z0-9]+}", thumbnailHandler).
 		Methods("GET")
 	router.HandleFunc("/upload", uploadPageHandler).
 		Methods("GET")
@@ -147,21 +191,31 @@ func main() {
 		Methods("GET")
 	router.HandleFunc("/verify/{EmailCode}", emailVerifyHandler).
 		Methods("GET")
-	router.HandleFunc("/view/{Id}", viewPageHandler).
+	router.HandleFunc("/view/{Id:[a-zA-Z0-9]+}", viewPageHandler).
 		Methods("GET")
-	router.HandleFunc("/approve/{Id}", approvalHandler).
+	router.HandleFunc("/account/save", saveSettingsHandler).
+		Methods("POST")
+	router.HandleFunc("/approve/{Id:[a-zA-Z0-9]+}", approvalHandler).
 		Methods("POST")
 	router.HandleFunc("/changepassword", changePasswordHandler).
 		Methods("POST")
-	router.HandleFunc("/delete/{Id}", deleteHandler).
+	router.HandleFunc("/cleartags/{Id:[a-zA-Z0-9]+}", clearTagsHandler).
 		Methods("POST")
-	router.HandleFunc("/edit/{Id}", editHandler).
+	router.HandleFunc("/comment/{Id:[a-zA-Z0-9]+}", commentHandler).
+		Methods("POST")
+	router.HandleFunc("/delete/{Id:[a-zA-Z0-9]+}", deleteHandler).
+		Methods("POST")
+	router.HandleFunc("/deletecomment/{Id:[0-9]+}", deleteCommentHandler).
+		Methods("POST")
+	router.HandleFunc("/edit/{Id:[a-zA-Z0-9]+}", editHandler).
 		Methods("POST")
 	router.HandleFunc("/generatetags", generateTagsHandler).
 		Methods("POST")
 	router.HandleFunc("/login", loginHandler).
 		Methods("POST")
 	router.HandleFunc("/salt", saltHandler).
+		Methods("POST")
+	router.HandleFunc("/savetags/{Id:[a-zA-Z0-9]+}", saveTagsHandler).
 		Methods("POST")
 	router.HandleFunc("/sendpasswordreset", sendPasswordResetHandler).
 		Methods("POST")
@@ -170,7 +224,12 @@ func main() {
 	router.HandleFunc("/upload", uploadHandler).
 		Methods("POST")
 	router.PathPrefix("/").HandlerFunc(staticHandler)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	serveMux := http.NewServeMux()
+	thumb := regexp.MustCompile(`^/thumbnails/[a-zA-Z0-9]{5}$`)
+	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if !thumb.MatchString(r.RequestURI) {
+			log.Print(ip(r), ": ", r.Method, " ", r.RequestURI)
+		}
 		session := getSession(r)
 		if _, ok := session.Values["SignedIn"]; !ok {
 			session.Values["SignedIn"] = false
@@ -189,7 +248,13 @@ func main() {
 		session.Save(r, w)
 		router.ServeHTTP(w, r)
 	})
-	http.ListenAndServe("127.0.0.1:9090", nil)
+	server := http.Server{
+		Addr:    "127.0.0.1:9090",
+		Handler: serveMux,
+		//ReadTimeout:  30 * time.Second,
+		//WriteTimeout: 30 * time.Second,
+	}
+	server.ListenAndServe()
 }
 
 func (u *User) Verified() bool {
@@ -214,19 +279,41 @@ func (p *Page) Render(w http.ResponseWriter) {
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	uploads := []Upload{}
-	db.Select(&uploads, "SELECT * FROM uploads ORDER BY posted_at DESC")
-	//for i := range uploads {
-	//	db.Get(&uploads[i].Author, "SELECT username FROM users WHERE id = $1", uploads[i].UserId)
-	//}
+	r.ParseForm()
+	query := r.FormValue("search")
+	if query == "" {
+		db.Select(&uploads, "SELECT * FROM uploads ORDER BY posted_at DESC")
+	} else {
+		uploadsByTitle := []Upload{}
+		db.Select(&uploadsByTitle, "SELECT * FROM uploads WHERE title ~* ('.*' || $1 || '.*')", query)
+		tags := []Tag{}
+		db.Select(&tags, "SELECT * FROM tags WHERE tag ~* ('.*' || $1 || '.*')", query)
+		uploadsByTag := []Upload{}
+		for _, tag := range tags {
+			upload := Upload{}
+			db.Get(&upload, "SELECT * FROM uploads WHERE id = $1", tag.UploadId)
+			uploadsByTag = append(uploadsByTag, upload)
+		}
+		uploads = append(uploadsByTitle, uploadsByTag...)
+		for i := range uploads {
+			for j := range uploads[i+1:] {
+				if uploads[j].Id == uploads[i].Id {
+					uploads[j] = Upload{}
+				}
+			}
+		}
+	}
 	session := getSession(r)
 	p := Page{
 		Title: "Home",
 		File:  "index.html",
 		Data: struct {
 			Uploads []Upload
+			Query   string
 			Session map[interface{}]interface{}
 		}{
 			uploads,
+			query,
 			session.Values,
 		},
 	}
@@ -244,14 +331,34 @@ func viewPageHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 	}
 	session := getSession(r)
+	count := 0
+	if upload.Id != "" {
+		db.Exec("INSERT INTO view_counts (upload_id, ip_address) VALUES ($1, $2)", upload.Id, ip(r))
+		db.Get(&count, "SELECT count(*) FROM view_counts WHERE upload_id = $1", upload.Id)
+	}
+	comments := []Comment{}
+	db.Select(&comments, "SELECT * FROM comments WHERE upload_id = $1 ORDER BY posted_at ASC", upload.Id)
+	for i := range comments {
+		comments[i].FormatedDate = formatDate(comments[i].PostedAt)
+		db.Get(&comments[i].Author, "SELECT username FROM users WHERE id = $1", comments[i].UserId)
+	}
+	upload.FormatedDate = formatDate(upload.PostedAt)
+	user := User{}
+	db.Get(&user, "SELECT key FROM users WHERE username = $1", session.Values["Username"])
 	p := Page{
 		Title: upload.Title,
 		File:  "view.html",
 		Data: struct {
-			Upload  Upload
-			Session map[interface{}]interface{}
+			Upload   Upload
+			Count    int
+			CSRF     string
+			Comments []Comment
+			Session  map[interface{}]interface{}
 		}{
 			upload,
+			count,
+			string(deriveExpiryCode("CSRF", 0, fromHex(user.Key))),
+			comments,
 			session.Values,
 		},
 	}
@@ -342,14 +449,16 @@ func accountPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user := User{}
 	session := getSession(r)
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", session.Values["Username"])
+	db.Get(&user, "SELECT id, comment_notify FROM users WHERE username = $1", session.Values["Username"])
 	var uploads []Upload
 	db.Select(&uploads, "SELECT * FROM uploads WHERE user_id = $1 ORDER BY posted_at DESC", user.Id)
 	p.Data = struct {
-		Uploads []Upload
-		Session map[interface{}]interface{}
+		Uploads       []Upload
+		CommentNotify bool
+		Session       map[interface{}]interface{}
 	}{
 		uploads,
+		user.CommentNotify,
 		session.Values,
 	}
 	p.Render(w)
@@ -470,6 +579,94 @@ func changePasswordPageHandler(w http.ResponseWriter, r *http.Request) {
 	p.Render(w)
 }
 
+func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	commentNotify := (r.PostFormValue("commentNotify") == "true")
+	session := getSession(r)
+	db.Exec("UPDATE users SET comment_notify = $1 WHERE username = $2", commentNotify, session.Values["Username"])
+	http.Redirect(w, r, "/account", http.StatusFound)
+}
+
+func commentHandler(w http.ResponseWriter, r *http.Request) {
+	upload := Upload{}
+	err := db.Get(&upload, "SELECT id, user_id, title FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
+	if err == sql.ErrNoRows {
+		log.Print("Comment handler: Upload does not exist: ", mux.Vars(r)["Id"])
+		errorMessage(w, r, "Upload does not exist!")
+		return
+	}
+	db.Get(&upload.Author, "SELECT id, email, comment_notify FROM users WHERE id = $1", upload.UserId)
+	session := getSession(r)
+	if !session.Values["Verified"].(bool) {
+		log.Println("Comment handler: Not verified")
+		w.WriteHeader(500)
+		return
+	}
+	gRecaptchaResponse := r.PostFormValue("g-recaptcha-response")
+	if !recaptchaTest(gRecaptchaResponse) {
+		log.Println("Comment handler: Robot alert!")
+		errorMessage(w, r, "You need to prove that you are not a robot!")
+		return
+	}
+	user := User{}
+	db.Get(&user, "SELECT id, username, key FROM users WHERE username = $1", session.Values["Username"])
+	comment := r.PostFormValue("comment")
+	if !checkExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
+		log.Print("COmment handler: Bad CSRF token")
+		errorMessage(w, r, "CSRF tokens have expired, please go back and refresh the page.")
+		return
+	}
+	_, err = db.Exec(`INSERT INTO comments (user_id, upload_id, comment, posted_at)
+			 VALUES ($1, $2, $3, $4)`,
+		user.Id, upload.Id, comment, time.Now().UTC(),
+	)
+	if err != nil {
+		log.Print("Comment handler: ", err)
+	}
+	if upload.Author.CommentNotify && user.Id != upload.Author.Id {
+		go mail.Send(
+			upload.Author.Email,
+			user.Username+" has commented on your upload",
+			"Go to https://clearskies.space/view/"+upload.Id+" to see it.\nIf you do not wish to get these notifications go to your accounts settings at https://clearskies.space/account and disable them.",
+		)
+	}
+	go mail.Send(
+		"clearskies.space@gmail.com",
+		user.Username+" has commented on "+upload.Title,
+		"https://clearskies.space/view/"+upload.Id,
+	)
+	http.Redirect(w, r, "/view/"+upload.Id, http.StatusFound)
+}
+
+func deleteCommentHandler(w http.ResponseWriter, r *http.Request) {
+	comment := Comment{}
+	id, err := strconv.Atoi(mux.Vars(r)["Id"])
+	if err != nil {
+		log.Print("Delete comment Handler: Invalid comment id: ", mux.Vars(r)["Id"])
+		errorMessage(w, r, "Invalid comment id.")
+		return
+	}
+	err = db.Get(&comment, "SELECT * FROM comments WHERE id = $1", id)
+	if err == sql.ErrNoRows {
+		log.Print("Delete comment Handler: Comment id does not exist: ", mux.Vars(r)["Id"])
+		errorMessage(w, r, "Comment does not exist!")
+		return
+	}
+	session := getSession(r)
+	user := User{}
+	db.Get(&user, "SELECT id, key FROM users WHERE username = $1", session.Values["Username"])
+	if !checkExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
+		log.Print("COmment handler: Bad CSRF token")
+		errorMessage(w, r, "CSRF tokens have expired, please go back and refresh the page.")
+		return
+	}
+	if !session.Values["Admin"].(bool) && user.Id != comment.UserId {
+		errorMessage(w, r, "Prohibited.")
+		return
+	}
+	db.Exec("DELETE FROM comments WHERE id = $1", comment.Id)
+	http.Redirect(w, r, "/view/"+comment.UploadId, http.StatusFound)
+}
+
 func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.PostFormValue("username")
 	resetToken := r.PostFormValue("resetToken")
@@ -494,22 +691,12 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(500)
 			return
 		}
-		if !validHexKey(oldPasscode) {
-			log.Println("Change password handler: Invalid passcode: " + oldPasscode)
-			w.WriteHeader(500)
-			return
-		}
 		if !checkPasscode(user, oldPasscode) {
 			log.Print("Change password handler: Incorrect password for password change attempt")
 			w.WriteHeader(500)
 			w.Write([]byte("incorrect password"))
 			return
 		}
-	}
-	if !validHexKey(newPasscode) {
-		log.Println("Change password handler: Invalid passcode: " + newPasscode)
-		w.WriteHeader(500)
-		return
 	}
 	err := db.Get(&user, "SELECT * FROM users WHERE username = $1", username)
 	if err == sql.ErrNoRows {
@@ -527,7 +714,7 @@ var apiURL string = "https://www.google.com/recaptcha/api/siteverify"
 
 func recaptchaTest(gRecaptchaResponse string) bool {
 	s, _ := ioutil.ReadFile("recaptcha_secret.txt")
-	secret := string(S)
+	secret := string(s)
 	v := url.Values{}
 	v.Add("secret", secret)
 	v.Add("response", gRecaptchaResponse)
@@ -585,7 +772,20 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		errorMessage(w, r, "You need to prove that you are not a robot! Hit back and try again.")
 		return
 	}
-	id := randBase57String(5)
+	id := ""
+	for i := 0; i < 128; i++ {
+		tryId := randBase57String(5)
+		count := 0
+		db.Get(&count, "SELECT count(*) FROM uploads WHERE id = $1", id)
+		if count == 0 {
+			id = tryId
+			break
+		}
+	}
+	if id == "" {
+		errorMessage(w, r, "Failed to generate an id.")
+		return
+	}
 	f, _, err := r.FormFile("file")
 	if err != nil {
 		log.Println("Upload handler: No file")
@@ -604,12 +804,10 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		supported = true
 	case "webp":
 		supported = true
-	case "tiff":
-		supported = true
 	}
 	if !supported {
 		log.Println("Upload handler: File not supported")
-		errorMessage(w, r, "File format not supported. You may upload gif, jpeg, png, tiff, or webp.")
+		errorMessage(w, r, "File format not supported. You may upload gif, jpeg, png, or webp.")
 		return
 	}
 	f.Seek(0, 0)
@@ -666,6 +864,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	db.Exec("DELETE FROM uploads WHERE id = $1", id)
+	db.Exec("DELETE FROM comments WHERE upload_id = $1", id)
 	os.Remove("static/uploads/" + id)
 	os.Remove("static/thumbnails/" + id)
 	http.Redirect(w, r, "/view/"+id, http.StatusFound)
@@ -681,17 +880,16 @@ func decodeImage(r io.Reader, format string) (img image.Image) {
 		img, _ = png.Decode(r)
 	case "webp":
 		img, _ = webp.Decode(r)
-	case "tiff":
-		img, _ = tiff.Decode(r)
 	}
 	return
 }
 
 func thumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	filename := "static/thumbnails/" + mux.Vars(r)["Id"]
-	if _, err := os.Stat(filename); err == nil {
-		f, _ := os.Open(filename)
-		io.Copy(w, f)
+	root := http.Dir("static/thumbnails")
+	httpFile, err := root.Open(mux.Vars(r)["Id"])
+	if err == nil {
+		io.Copy(w, httpFile)
 		return
 	}
 	filename = "static/uploads/" + mux.Vars(r)["Id"]
@@ -748,11 +946,9 @@ func (u *User) Valid() bool {
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Signup request:")
 	username := r.PostFormValue("username")
 	email := r.PostFormValue("email")
 	passcode := r.PostFormValue("passcode")
-	log.Printf("Username: %s\nEmail: %s\nPasscode: %s\n", username, email, passcode)
 	if !validEmail(email) {
 		log.Println("Signup handler: Invalid email address: " + email)
 		w.WriteHeader(500)
@@ -760,11 +956,6 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validUsername(username) {
 		log.Println("Signup handler: Invalid username.")
-		w.WriteHeader(500)
-		return
-	}
-	if !validHexKey(passcode) {
-		log.Println("Signup handler: Invalid passcode: " + passcode)
 		w.WriteHeader(500)
 		return
 	}
@@ -838,10 +1029,8 @@ func checkPasscode(user User, passcode string) bool {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Login request:")
 	usernameOrEmail := r.PostFormValue("usernameOrEmail")
 	passcode := r.PostFormValue("passcode")
-	log.Printf("Username: %s\nPasscode: %s\n", usernameOrEmail, passcode)
 	if !validUsername(usernameOrEmail) && !validEmail(usernameOrEmail) {
 		log.Println("Invalid username or email: " + usernameOrEmail)
 		w.WriteHeader(500)
@@ -958,8 +1147,8 @@ func saltHandler(w http.ResponseWriter, r *http.Request) {
 				signed_up_at,
 				verified_at,
 				admin
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-			username, email, "", "", "", toHex(key), time.Now().UTC(), time.Time{}, time.Time{}, false,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			username, email, "", "", "", toHex(key), time.Now().UTC(), time.Time{}, time.Time{}, false, true,
 		)
 	} else {
 		key = fromHex(user.Key)
@@ -1071,7 +1260,10 @@ func sendEmailVerification(username string) error {
 	}
 	link, _ := url.Parse("https://clearskies.space")
 	link.Path = "/verify/" + string(deriveExpiryCode("EMAIL_CODE", 0, fromHex(user.Key)))
-	go mail.Send(user.Email, "ClearSkies.space", "You signed up for ClearSkies.space. Please click the following link to confirm your email address.\n"+link.String()+"\nIf you did NOT sign up for this website under the username \""+user.Username+"\" please ignore this email.")
+	go mail.Send(
+		user.Email,
+		"Please confirm your email address",
+		"You signed up for ClearSkies.space. Please click the following link to confirm your email address.\n"+link.String()+"\nIf you did NOT sign up for this website under the username \""+user.Username+"\" please ignore this email.")
 	return nil
 }
 

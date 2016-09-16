@@ -1,4 +1,12 @@
 {{if .Upload.Id}}
+    <!-- Load Facebook SDK for JavaScript -->
+    <script id="fbShareScript">(function(d, s, id) {
+        var js, fjs = d.getElementById("fbShareScript");
+        if (d.getElementById(id)) return;
+        js = d.createElement(s); js.id = id;
+        js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.7";
+        fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'facebook-jssdk'));</script>
     <script src="/tagging.js"></script>
     <script type="application/json" id="tags">
         {{.Tags}}
@@ -35,7 +43,13 @@
             <img src="/uploads/{{.Upload.Id}}" style="max-width: 100%">
         </div>
     <!--/a-->
-    <p style="word-break: break-word; white-space: pre-wrap">{{.Upload.Description}}</p>
+    <p style="word-break: break-word; white-space: pre-wrap; width: 100%; max-width: 500px">{{.Upload.Description}}</p>
+    <div style="position: relative">
+        <div class="fb-share-button" data-href="https://clearskies.space/view/{{.Upload.Id}}" data-layout="button" data-mobile-iframe="true"><a class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fdevelopers.facebook.com%2Fdocs%2Fplugins%2F&amp;src=sdkpreparse">Share</a></div>
+        <div style="display: inline-block; position: relative; left: -2px; top: 5px">
+            <a href="https://twitter.com/share" class="twitter-share-button">Tweet</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+        </div>
+    </div>
     {{if eq .Session.Username .Upload.Author.Username}}
         <a href="/edit/{{.Upload.Id}}"><button>&nbsp;&nbsp;Edit&nbsp;&nbsp;</button></a>
     {{end}}
@@ -66,7 +80,7 @@
         <br>
         <form action="/comment/{{.Upload.Id}}" method="post">
             <input type="hidden" name="csrf" value="{{.CSRF}}">
-            <textarea id="comment" style="width: 100%; max-width: 500px; height: 100px; resize: vertical; color: #000" name="comment" placeholder="Comment" maxlength="4095"></textarea><br><br>
+            <textarea id="comment" style="height: 100px" name="comment" placeholder="Comment" maxlength="4095"></textarea><br><br>
             <input type="submit" style="margin-top: -8px" value="Submit Comment"><br><br>
             <div id="recaptcha" class="g-recaptcha" style="display: none" data-sitekey="6LequCkTAAAAAGPLcAH6e_JPL2d9MqMHak61wPgg"></div>
         </form>

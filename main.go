@@ -121,7 +121,38 @@ type Page struct {
 	Title   string
 	File    string
 	Data    interface{}
+	Headers []template.HTML
 	Content template.HTML
+}
+
+func (p *Page) AddHeader(header string, data ...interface{}) {
+	if len(data) > 1 {
+		log.Fatal("Add header supports at most one piece of data!")
+	}
+	tmpl, _ := template.New("").Parse(header)
+	var input interface{}
+	if len(data) == 1 {
+		input = data[0]
+	}
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, input)
+	p.Headers = append(p.Headers, template.HTML(buf.Bytes()))
+}
+
+func (p *Page) Render(w http.ResponseWriter) {
+	content, err := template.ParseFiles("templates/" + p.File)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var buf bytes.Buffer
+	err = content.Execute(&buf, p.Data)
+	if err != nil {
+		log.Fatal(err)
+	}
+	p.Content = template.HTML(buf.Bytes())
+	base, _ := template.ParseFiles("templates/base.html")
+	w.Header().Set("content-Type", "text/html")
+	base.Execute(w, p)
 }
 
 var db *sqlx.DB
@@ -259,22 +290,6 @@ func (u *User) Verified() bool {
 	return !u.VerifiedAt.IsZero()
 }
 
-func (p *Page) Render(w http.ResponseWriter) {
-	content, err := template.ParseFiles("templates/" + p.File)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var buf bytes.Buffer
-	err = content.Execute(&buf, p.Data)
-	if err != nil {
-		log.Fatal(err)
-	}
-	p.Content = template.HTML(buf.Bytes())
-	base, _ := template.ParseFiles("templates/base.html")
-	w.Header().Set("content-Type", "text/html")
-	base.Execute(w, p)
-}
-
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	uploads := []Upload{}
 	r.ParseForm()
@@ -365,6 +380,20 @@ func viewPageHandler(w http.ResponseWriter, r *http.Request) {
 			session.Values,
 		},
 	}
+	p.AddHeader(`
+		<meta property="og:url"			content="https://clearskies.space/view/{{.Id}}" />
+		<meta property="og:type"        content="website" />
+		<meta property="og:title"       content="{{.Title}} - ClearSkies.space" />
+		<meta property="og:description" content="{{.Title}}" />
+		<meta property="og:image"       content="https://clearskies.space/uploads/{{.Id}}" />`,
+		struct {
+			Id    string
+			Title string
+		}{
+			mux.Vars(r)["Id"],
+			upload.Title,
+		},
+	)
 	p.Render(w)
 }
 
@@ -868,6 +897,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	db.Exec("DELETE FROM uploads WHERE id = $1", id)
 	db.Exec("DELETE FROM comments WHERE upload_id = $1", id)
+	db.Exec("DELETE FROM view_counts WHERE upload_id = $1", id)
 	os.Remove("static/uploads/" + id)
 	os.Remove("static/thumbnails/" + id)
 	http.Redirect(w, r, "/view/"+id, http.StatusFound)

@@ -31,7 +31,8 @@ $(document).ready( function() {
             url: "/salt",
             data: saltFields,
             success: function(data) {
-                // Mask passwords from our servers for added privacy and security.
+                // Hash passwords client-side for privacy.
+                // Passcodes are subsequently hashed server-side.
                 form.passcode = hasher(password, data);
                 $.ajax({
                     method: "POST",
@@ -87,7 +88,7 @@ $(document).ready( function() {
             },
             error: function(data) {
                 if (data.responseText == "multiple unverified emails") {
-                    alert("There are multiple accounts associated with this email. Please use your username instead to log in. You can use your email address to log in once it has been verified.");
+                    alert("There are multiple unverified accounts associated with this email. Please use your username instead to log in. You can use your email address to log in once it has been verified.");
                 } else {
                     alert("Handshake error.");
                 }

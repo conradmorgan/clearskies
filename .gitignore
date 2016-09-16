@@ -1,7 +1,5 @@
-*.sw?
 /static/uploads
 /static/thumbnails
 /cookie_keys.txt
 /recaptcha_secret.txt
 /mail_login.txt
-/sync

@@ -44,12 +44,6 @@
         </div>
     <!--/a-->
     <p style="word-break: break-word; white-space: pre-wrap; width: 100%; max-width: 500px">{{.Upload.Description}}</p>
-    <div style="position: relative">
-        <div class="fb-share-button" data-href="https://clearskies.space/view/{{.Upload.Id}}" data-layout="button" data-mobile-iframe="true"><a class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fdevelopers.facebook.com%2Fdocs%2Fplugins%2F&amp;src=sdkpreparse">Share</a></div>
-        <div style="display: inline-block; position: relative; left: -2px; top: 5px">
-            <a href="https://twitter.com/share" class="twitter-share-button">Tweet</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-        </div>
-    </div>
     {{if eq .Session.Username .Upload.Author.Username}}
         <a href="/edit/{{.Upload.Id}}"><button>&nbsp;&nbsp;Edit&nbsp;&nbsp;</button></a>
     {{end}}
@@ -59,6 +53,12 @@
         </form>
         <br>
     {{end}}
+    <div style="position: relative">
+        <div class="fb-share-button" data-href="https://clearskies.space/view/{{.Upload.Id}}" data-layout="button" data-mobile-iframe="true"><a class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fdevelopers.facebook.com%2Fdocs%2Fplugins%2F&amp;src=sdkpreparse">Share</a></div>
+        <div style="display: inline-block; position: relative; left: -2px; top: 5px">
+            <a href="https://twitter.com/share" class="twitter-share-button">Tweet</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+        </div>
+    </div>
     {{if and .Session.Admin (not .Upload.Approved)}}
         <form method="post" action="/approve/{{.Upload.Id}}">
             <input style="width: 80px; height: 40px; background-color: #0F0" type="submit" value="Approve">

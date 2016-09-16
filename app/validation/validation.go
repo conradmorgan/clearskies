@@ -1,4 +1,4 @@
-package main
+package validation
 
 import (
 	m "net/mail"
@@ -11,7 +11,7 @@ var (
 	hexKeyMatcher   = regexp.MustCompile(`^[0-9A-Fa-f]{32,64}$`)
 )
 
-func validEmail(s string) bool {
+func ValidEmail(s string) bool {
 	if len(s) > 255 {
 		return false
 	}
@@ -25,10 +25,10 @@ func validEmail(s string) bool {
 	return true
 }
 
-func validUsername(s string) bool {
+func ValidUsername(s string) bool {
 	return usernameMatcher.MatchString(s)
 }
 
-func validHexKey(s string) bool {
+func ValidHexKey(s string) bool {
 	return hexKeyMatcher.MatchString(s)
 }

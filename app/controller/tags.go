@@ -1,15 +1,13 @@
-package main
+package controller
 
 import (
+	"clearskies/app/model"
+	"clearskies/app/session"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -23,8 +21,8 @@ type Tag struct {
 	Y          float64 `db:"y"`
 }
 
-func clearTagsHandler(w http.ResponseWriter, r *http.Request) {
-	upload := Upload{}
+func ClearTags(w http.ResponseWriter, r *http.Request) {
+	upload := model.Upload{}
 	err := db.Get(&upload, "SELECT id, user_id FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
 	if err == sql.ErrNoRows {
 		log.Print("Save tags handler: Nonexistent upload: ", mux.Vars(r)["Id"])
@@ -35,9 +33,9 @@ func clearTagsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
-	session := getSession(r)
-	user := User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", session.Values["Username"])
+	s := session.Get(r)
+	user := model.User{}
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Values["Username"])
 	if upload.UserId != user.Id {
 		log.Print("Save tags handler: Prohibited")
 		w.WriteHeader(500)
@@ -46,8 +44,8 @@ func clearTagsHandler(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM tags WHERE upload_id = $1", upload.Id)
 }
 
-func saveTagsHandler(w http.ResponseWriter, r *http.Request) {
-	upload := Upload{}
+func SaveTags(w http.ResponseWriter, r *http.Request) {
+	upload := model.Upload{}
 	err := db.Get(&upload, "SELECT id, user_id FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
 	if err == sql.ErrNoRows {
 		log.Print("Save tags handler: Nonexistent upload: ", mux.Vars(r)["Id"])
@@ -58,9 +56,9 @@ func saveTagsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
-	session := getSession(r)
-	user := User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", session.Values["Username"])
+	s := session.Get(r)
+	user := model.User{}
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Values["Username"])
 	if upload.UserId != user.Id {
 		log.Print("Save tags handler: Prohibited")
 		w.WriteHeader(500)
@@ -81,6 +79,15 @@ func saveTagsHandler(w http.ResponseWriter, r *http.Request) {
 			upload.Id, tag.Tag, tag.Radius, tag.LabelAngle, tag.X, tag.Y,
 		)
 	}
+}
+
+// A work in progress.
+/*
+type AutoTag struct {
+	Name      string
+	Magnitude float64
+	Dim       float64
+	Point     Vector
 }
 
 type AlignmentPoint struct {
@@ -104,13 +111,6 @@ type CoordinateSystem struct {
 	AlignmentPoints [2]AlignmentPoint
 	Objects         [2]Object
 	IsMirrored      bool
-}
-
-type AutoTag struct {
-	Name      string
-	Magnitude float64
-	Dim       float64
-	Point     Vector
 }
 
 type Vector struct {
@@ -201,7 +201,7 @@ func tapQuery(query string) []byte {
 	return body
 }
 
-func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
+func GenerateTags(w http.ResponseWriter, r *http.Request) {
 	body, _ := ioutil.ReadAll(r.Body)
 	data := struct {
 		AspectRatio float64
@@ -295,7 +295,7 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 				mData.Data[i][2].(float64),
 			},
 		}
-		/*
+		if false {
 			galDim := (mData.Data[i][3].(float64) + mData.Data[i][4].(float64)) / 2 / 60 / 60
 			if obj.MainId == "M  45" {
 				galDim = 80.0 / 60
@@ -303,7 +303,7 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 				galDim = (178.0 + 63.0) / 2 / 60
 			}
 			dim := c.RADecToImagePoint(RADec{galDim + origin.X, origin.Y})
-		*/
+		}
 		tags = append(tags, AutoTag{
 			Name:      obj.MainId,
 			Magnitude: obj.Magnitude,
@@ -331,3 +331,4 @@ func generateTagsHandler(w http.ResponseWriter, r *http.Request) {
 	j, _ := json.Marshal(tags)
 	w.Write(j)
 }
+*/

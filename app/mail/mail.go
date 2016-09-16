@@ -1,4 +1,4 @@
-package main
+package mail
 
 import (
 	"fmt"
@@ -8,34 +8,34 @@ import (
 	"strings"
 )
 
-type Mailer struct {
+type mailer struct {
 	auth    smtp.Auth
 	address string
 	server  string
 }
 
-var mail Mailer
+var mail mailer
 
 func init() {
 	host := "smtp.gmail.com"
-	s, _ := ioutil.ReadFile("mail_login.txt")
+	s, _ := ioutil.ReadFile("config/mail_login.txt")
 	split := strings.Split(string(s), "\n")
 	username := split[0]
 	password := split[1]
 
-	mail = Mailer{
+	mail = mailer{
 		auth:    smtp.PlainAuth("", username, string(password), host),
 		address: username,
 		server:  host + ":587",
 	}
 }
 
-func (m *Mailer) Send(to, subject, msg string) {
+func Send(to, subject, msg string) {
 	body := makeBody(to, subject, msg)
 
 	log.Print(string(body))
 	err := smtp.SendMail(
-		m.server, m.auth, m.address, []string{to}, body,
+		mail.server, mail.auth, mail.address, []string{to}, body,
 	)
 	if err != nil {
 		log.Print(err)

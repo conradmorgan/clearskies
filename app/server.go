@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"clearskies/app/config"
 	"clearskies/app/database"
 	"clearskies/app/model"
 	"clearskies/app/session"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/context"
@@ -61,6 +63,9 @@ func Serve() {
 		s.Save(w)
 		router.ServeHTTP(w, r)
 	})
-	log.Print("Listening on port ", "9090", "...")
-	http.ListenAndServe("127.0.0.1:9090", nil)
+	log.Print("Listening on port ", config.Server.Port, "...")
+	http.ListenAndServe(
+		config.Server.Address+":"+strconv.Itoa(config.Server.Port),
+		nil,
+	)
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"clearskies/app/config"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -13,10 +14,8 @@ import (
 var apiURL string = "https://www.google.com/recaptcha/api/siteverify"
 
 func recaptchaTest(gRecaptchaResponse string) bool {
-	s, _ := ioutil.ReadFile("config/recaptcha_secret.txt")
-	secret := string(s)
 	v := url.Values{}
-	v.Add("secret", secret)
+	v.Add("secret", config.Recaptcha.Secret)
 	v.Add("response", gRecaptchaResponse)
 	resp, err := http.Post(apiURL, "application/x-www-form-urlencoded", strings.NewReader(v.Encode()))
 	if err != nil {

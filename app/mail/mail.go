@@ -1,11 +1,11 @@
 package mail
 
 import (
+	"clearskies/app/config"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/smtp"
-	"strings"
+	"strconv"
 )
 
 type mailer struct {
@@ -17,16 +17,12 @@ type mailer struct {
 var mail mailer
 
 func init() {
-	host := "smtp.gmail.com"
-	s, _ := ioutil.ReadFile("config/mail_login.txt")
-	split := strings.Split(string(s), "\n")
-	username := split[0]
-	password := split[1]
-
 	mail = mailer{
-		auth:    smtp.PlainAuth("", username, string(password), host),
-		address: username,
-		server:  host + ":587",
+		auth: smtp.PlainAuth(
+			"", config.Mail.Username, config.Mail.Password, config.Mail.Host,
+		),
+		address: config.Mail.Username,
+		server:  config.Mail.Host + ":" + strconv.Itoa(config.Mail.Port),
 	}
 }
 

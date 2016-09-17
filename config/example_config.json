@@ -1,0 +1,19 @@
+{
+    "Server": {
+        "Address": "",
+        "Port": 8080
+    },
+    "Mail": {
+        "Host": "smtp.google.com",
+        "Port": 25,
+        "Username": "myemail@example.com",
+        "Password": "mypassword"
+    },
+    "Sessions": {
+        "AuthKey": "deadbeef",
+        "EncKey": "deadbeef"
+    },
+    "Recaptcha": {
+        "Secret": "mysecret"
+    }
+}

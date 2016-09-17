@@ -1,10 +1,10 @@
 package session
 
 import (
+	"clearskies/app/config"
 	"clearskies/app/utils"
-	"io/ioutil"
+	"clearskies/app/validation"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/sessions"
 )
@@ -12,12 +12,18 @@ import (
 var store *sessions.CookieStore
 
 func init() {
-	keys, _ := ioutil.ReadFile("config/cookie_keys.txt")
-	split := strings.Split(string(keys), "\n")
-	store = sessions.NewCookieStore(
-		utils.FromHex(split[0]),
-		utils.FromHex(split[1]),
-	)
+	var authKey, encKey []byte
+	if !validation.ValidHexKey(config.Sessions.AuthKey) {
+		authKey = []byte(config.Sessions.AuthKey)
+	} else {
+		authKey = utils.FromHex(config.Sessions.AuthKey)
+	}
+	if !validation.ValidHexKey(config.Sessions.EncKey) {
+		encKey = []byte(config.Sessions.EncKey)
+	} else {
+		encKey = utils.FromHex(config.Sessions.EncKey)
+	}
+	store = sessions.NewCookieStore(authKey, encKey)
 }
 
 type Session struct {

@@ -1,3 +1,5 @@
+// Mask passwords from our servers for added privacy.
+// Passwords are also hashed server side for assurance.
 function hasher(password, hexSalt) {
     var salt = sjcl.codec.hex.toBits(hexSalt);
     var hash = sjcl.misc.pbkdf2(password, salt, 1024, 128);
@@ -31,7 +33,6 @@ $(document).ready( function() {
             url: "/salt",
             data: saltFields,
             success: function(data) {
-                // Mask passwords from our servers for added privacy and security.
                 form.passcode = hasher(password, data);
                 $.ajax({
                     method: "POST",
@@ -55,6 +56,7 @@ $(document).ready( function() {
             }
         });
     });
+
     $('#loginButton').click(function ( event ) {
         event.preventDefault();
         var form = {
@@ -100,6 +102,7 @@ $(document).ready( function() {
             }
         });
     });
+
     $('#changePasswordButton').click(function ( event ) {
         event.preventDefault();
         var form = {
@@ -157,6 +160,7 @@ $(document).ready( function() {
             },
         });
     });
+
     $('#username').keyup(function() {
         var usernameMatcher = /^[0-9A-Za-z_-]{1,30}$/;
         if (!usernameMatcher.exec($('#username').val())) {
@@ -165,6 +169,7 @@ $(document).ready( function() {
             $('#username').css("background-color", "#fff");
         }
     });
+
     $('#confirmPassword').keyup(function() {
         if ($('#confirmPassword').val() != $('#password').val()) {
             $('#confirmPassword').css("background-color", "#ffcccc");
@@ -172,6 +177,7 @@ $(document).ready( function() {
             $('#confirmPassword').css("background-color", "#fff");
         }
     });
+
     $('#confirmNewPassword').keyup(function() {
         if ($('#confirmNewPassword').val() != $('#newPassword').val()) {
             $('#confirmNewPassword').css("background-color", "#ffcccc");

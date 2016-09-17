@@ -7,8 +7,8 @@ import (
 	"clearskies/app/utils"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -57,12 +57,18 @@ func sendEmailVerification(username string) error {
 	if user.Verified() {
 		return errors.New("email already verified")
 	}
-	link, _ := url.Parse("https://clearskies.space")
-	link.Path = "/verify/" + string(utils.DeriveExpiryCode("EMAIL_CODE", 0, utils.FromHex(user.Key)))
+	emailCode := string(utils.DeriveExpiryCode("EMAIL_CODE", 0, utils.FromHex(user.Key)))
 	go mail.Send(
 		user.Email,
 		"Please confirm your email address",
-		"You signed up for ClearSkies.space. Please click the following link to confirm your email address.\n"+link.String()+"\nIf you did NOT sign up for this website under the username \""+user.Username+"\" please ignore this email.")
+		fmt.Sprintf(
+			`You signed up for ClearSkies.space. Please click the following link to confirm your email address.
+			%s
+			If you did NOT sign up for this website under the username "%s" please ignore this email.`,
+			"https://clearskies.space/verify/"+emailCode,
+			user.Username,
+		),
+	)
 	return nil
 }
 

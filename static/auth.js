@@ -1,5 +1,3 @@
-// Mask passwords from our servers for privacy.
-// Passwords are hashed server side as well for assurance.
 function hasher(password, hexSalt) {
     var salt = sjcl.codec.hex.toBits(hexSalt);
     var hash = sjcl.misc.pbkdf2(password, salt, 1024, 128);
@@ -33,6 +31,7 @@ $(document).ready( function() {
             url: "/salt",
             data: saltFields,
             success: function(data) {
+                // Mask passwords from our servers for added privacy and security.
                 form.passcode = hasher(password, data);
                 $.ajax({
                     method: "POST",
@@ -68,7 +67,6 @@ $(document).ready( function() {
             data: form,
             success: function(data) {
                 form.passcode = hasher(password, data);
-                form["g-recaptcha-response"] = $('#g-recaptcha-response').val();
                 $.ajax({
                     method: "POST",
                     url: "/login",
@@ -81,9 +79,9 @@ $(document).ready( function() {
                         if (data.responseText == "multiple unverified emails") {
                             alert("Please use your username (not your email) to log in.");
                         } else if (data.responseText == "too many failed attempts") {
-                            window.location = "/login";
+                            window.location.reload();
                         } else if (data.responseText == "recaptcha failure") {
-                            window.location = "/login";
+                            alert("You need to prove that you are not a robot!");
                         } else {
                             alert("Incorrect username or password.");
                         }

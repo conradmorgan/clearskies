@@ -22,17 +22,32 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 		Title: "Login",
 		File:  "login.html",
 	}
-	session := session.Get(r)
+	s := session.Get(r)
 	var notice string
-	if session.Values["Username"] == "" && session.Values["EmailCode"] != nil {
+	if s.Values["Username"] == "" && s.Values["EmailCode"] != nil {
 		notice = "Please log in to complete the verification process."
 	}
+	var attemptsSlice []int
+	db.Select(
+		&attemptsSlice,
+		`SELECT attempts
+		FROM failed_login_attempts
+		WHERE ip_address = $1
+		ORDER BY attempts DESC`,
+		ip(r),
+	)
+	attempts := 0
+	if len(attemptsSlice) >= 1 {
+		attempts = attemptsSlice[0]
+	}
 	v.Data = struct {
-		Notice  string
-		Session map[interface{}]interface{}
+		Notice           string
+		Session          map[interface{}]interface{}
+		IncludeRecaptcha bool
 	}{
 		notice,
-		session.Values,
+		s.Values,
+		attempts >= 3,
 	}
 	v.Render(w)
 }
@@ -93,11 +108,63 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
+	attempts := 0
+	db.Get(&attempts,
+		`SELECT attempts
+		FROM failed_login_attempts
+		WHERE user_id = $1 AND ip_address = $2`,
+		user.Id, ip(r),
+	)
+	session := session.Get(r)
+	session.Values["AttemptedUserId"] = user.Id
+	session.Save(r, w)
+	if attempts >= 3 {
+		if !recaptchaTest(r.PostFormValue("g-recaptcha-response")) {
+			log.Println("Login handler: Robot alert!")
+			w.WriteHeader(500)
+			w.Write([]byte("recaptcha failure"))
+			return
+		}
+	}
 	if !checkPasscode(user, passcode) {
+		attempts := 0
+		err := db.Get(&attempts,
+			`SELECT attempts
+			FROM failed_login_attempts
+			WHERE user_id = $1 AND ip_address = $2`,
+			user.Id, ip(r),
+		)
+		attempts++
+		if err == sql.ErrNoRows {
+			_, err := db.Exec(
+				`INSERT INTO failed_login_attempts (user_id, ip_address, attempts)
+				VALUES ($1, $2, $3)`,
+				user.Id, ip(r), 1,
+			)
+			if err != nil {
+				log.Print("Login handler: ", err)
+			}
+		} else {
+			db.Exec(
+				`UPDATE failed_login_attempts
+				SET attempts = $1
+				WHERE user_id = $2 AND ip_address = $3`,
+				attempts, user.Id, ip(r),
+			)
+		}
+		if attempts >= 3 {
+			w.WriteHeader(500)
+			w.Write([]byte("too many failed attempts"))
+			return
+		}
 		w.WriteHeader(500)
 		return
 	}
-	session := session.Get(r)
+	db.Exec(`
+		DELETE FROM failed_login_attempts
+		WHERE user_id = $1 AND ip_address = $2`,
+		user.Id, ip(r),
+	)
 	session.Values["SignedIn"] = true
 	session.Values["Username"] = username
 	if session.Values["EmailCode"] != nil {

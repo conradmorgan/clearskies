@@ -1,3 +1,5 @@
+// Mask passwords from our servers for privacy.
+// Passwords are hashed server side as well for assurance.
 function hasher(password, hexSalt) {
     var salt = sjcl.codec.hex.toBits(hexSalt);
     var hash = sjcl.misc.pbkdf2(password, salt, 1024, 128);
@@ -31,8 +33,6 @@ $(document).ready( function() {
             url: "/salt",
             data: saltFields,
             success: function(data) {
-                // Hash passwords client-side for privacy.
-                // Passcodes are subsequently hashed server-side.
                 form.passcode = hasher(password, data);
                 $.ajax({
                     method: "POST",
@@ -68,6 +68,7 @@ $(document).ready( function() {
             data: form,
             success: function(data) {
                 form.passcode = hasher(password, data);
+                form["g-recaptcha-response"] = $('#g-recaptcha-response').val();
                 $.ajax({
                     method: "POST",
                     url: "/login",
@@ -79,6 +80,10 @@ $(document).ready( function() {
                     error: function(data) {
                         if (data.responseText == "multiple unverified emails") {
                             alert("Please use your username (not your email) to log in.");
+                        } else if (data.responseText == "too many failed attempts") {
+                            window.location = "/login";
+                        } else if (data.responseText == "recaptcha failure") {
+                            window.location = "/login";
                         } else {
                             alert("Incorrect username or password.");
                         }
@@ -88,7 +93,7 @@ $(document).ready( function() {
             },
             error: function(data) {
                 if (data.responseText == "multiple unverified emails") {
-                    alert("There are multiple unverified accounts associated with this email. Please use your username instead to log in. You can use your email address to log in once it has been verified.");
+                    alert("There are multiple accounts associated with this email. Please use your username instead to log in. You can use your email address to log in once it has been verified.");
                 } else {
                     alert("Handshake error.");
                 }

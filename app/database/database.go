@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS comments (
 	comment   varchar(4095) NOT NULL,
 	posted_at timestamp     WITH TIME ZONE NOT NULL
 );
+CREATE TABLE IF NOT EXISTS failed_login_attempts (
+	user_id    integer NOT NULL,
+	ip_address inet    NOT NULL,
+	attempts   integer NOT NULL,
+	UNIQUE (user_id, ip_address)
+);
 CREATE INDEX IF NOT EXISTS view_counts_upload_id_index ON view_counts (upload_id);
 `
 

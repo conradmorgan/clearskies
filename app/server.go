@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/gorilla/context"
 	"github.com/jmoiron/sqlx"
@@ -24,6 +25,10 @@ func init() {
 }
 
 func Serve() {
+	go func() {
+		db.Exec("DELETE FROM failed_login_attempts")
+		time.Sleep(24 * time.Hour)
+	}()
 	router := routes()
 	serveMux := http.NewServeMux()
 	thumb := regexp.MustCompile(`^/thumbnails/[a-zA-Z0-9]{5}$`)

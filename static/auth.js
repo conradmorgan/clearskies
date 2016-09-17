@@ -67,6 +67,7 @@ $(document).ready( function() {
             data: form,
             success: function(data) {
                 form.passcode = hasher(password, data);
+                form["g-recaptcha-response"] = $('#g-recaptcha-response').val();
                 $.ajax({
                     method: "POST",
                     url: "/login",

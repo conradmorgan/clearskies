@@ -16,17 +16,17 @@ import (
 
 func SendVerification(w http.ResponseWriter, r *http.Request) {
 	s := session.Get(r)
-	username := s.Vars()["Username"].(string)
+	username := s.Vars["Username"].(string)
 	sendEmailVerification(username)
 	http.Redirect(w, r, "/account", http.StatusFound)
 }
 
 func Verify(w http.ResponseWriter, r *http.Request) {
 	s := session.Get(r)
-	if s.Vars()["Username"] != "" {
-		ok := checkEmailCode(s.Vars()["Username"].(string), mux.Vars(r)["EmailCode"])
+	if s.Vars["Username"] != "" {
+		ok := checkEmailCode(s.Vars["Username"].(string), mux.Vars(r)["EmailCode"])
 		if !ok {
-			if !s.Vars()["Verified"].(bool) {
+			if !s.Vars["Verified"].(bool) {
 				errorMessage(w, r, "Failed to verify email! Please log in and and click resend in your account page.")
 			} else {
 				w.WriteHeader(404)
@@ -34,12 +34,12 @@ func Verify(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		} else {
-			s.Vars()["Verified"] = true
+			s.Vars["Verified"] = true
 			s.Save(w)
 			http.Redirect(w, r, "/", http.StatusFound)
 		}
 	} else {
-		s.Vars()["EmailCode"] = mux.Vars(r)["EmailCode"]
+		s.Vars["EmailCode"] = mux.Vars(r)["EmailCode"]
 		s.Save(w)
 		http.Redirect(w, r, "/login", http.StatusFound)
 	}

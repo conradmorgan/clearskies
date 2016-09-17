@@ -36,10 +36,10 @@ func Serve() {
 	router := routes()
 	thumb := regexp.MustCompile(`^/thumbnails/[a-zA-Z0-9]{5}$`)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		var body []byte
 		// Filter out thumbnail spam.
 		if !thumb.MatchString(r.RequestURI) {
-			// Don't parse requests that are expected to be large.
+			var body []byte
+			// Don't parse and log request bodies that are expected to be large.
 			if !(r.RequestURI == "/upload" && r.Method == "POST") {
 				// Read r.Body and parse form for logging form values.
 				if r.Body != nil {
@@ -58,7 +58,7 @@ func Serve() {
 		}
 		s := session.Get(r)
 		user := model.User{}
-		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"])
+		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars["Username"])
 		context.Set(r, "csrf", string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))))
 		s.Save(w)
 		router.ServeHTTP(w, r)

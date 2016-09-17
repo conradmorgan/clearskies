@@ -15,18 +15,9 @@ func UserPage(w http.ResponseWriter, r *http.Request) {
 	var uploads []model.Upload
 	db.Select(&uploads, "SELECT * FROM uploads WHERE user_id = $1 ORDER BY posted_at DESC", user.Id)
 	s := session.Get(r)
-	v := view.View{
-		Title: mux.Vars(r)["Username"],
-		File:  "user.html",
-		Data: struct {
-			Uploads []model.Upload
-			User    model.User
-			Session map[interface{}]interface{}
-		}{
-			uploads,
-			user,
-			s.Vars(),
-		},
-	}
+	v := view.New("user.html", mux.Vars(r)["Username"])
+	v.Vars["Uploads"] = uploads
+	v.Vars["User"] = user
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }

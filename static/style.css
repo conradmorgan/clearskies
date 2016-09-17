@@ -20,11 +20,33 @@ textarea {
     color: #000;
     resize: vertical;
 }
-    
+h1 {
+    font-size: 30px;
+}
+h2 {
+    font-size: 24px;
+}
+h3 {
+    font-size: 18px;
+}
 #wrap {
     min-height: 100%;
     height: auto !important;
     height: 100%;
+}
+#title {
+    word-break: break-word;
+}
+#image {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+#description {
+    word-break: break-word;
+    white-space: pre-wrap;
+    width: 100%;
+    max-width: 500px;
 }
 .thumbnail {
     padding-top: 14px;

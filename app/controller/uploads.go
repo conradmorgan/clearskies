@@ -49,41 +49,26 @@ func ViewPage(w http.ResponseWriter, r *http.Request) {
 	upload.FormatedDate = utils.FormatDate(upload.PostedAt)
 	s := session.Get(r)
 	user := model.User{}
-	db.Get(&user, "SELECT key FROM users WHERE username = $1", s.Vars()["Username"])
+	db.Get(&user, "SELECT key FROM users WHERE username = $1", s.Vars["Username"])
 	tags := []Tag{}
 	db.Select(&tags, "SELECT * FROM tags WHERE upload_id = $1", mux.Vars(r)["Id"])
 	tagData, _ := json.Marshal(tags)
-	v := view.View{
-		Title: upload.Title,
-		File:  "view.html",
-		Data: struct {
-			Upload   model.Upload
-			Count    int
-			CSRF     string
-			Comments []model.Comment
-			Tags     template.JS
-			Session  map[interface{}]interface{}
-		}{
-			upload,
-			count,
-			string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))),
-			comments,
-			template.JS(tagData),
-			s.Vars(),
-		},
-	}
+    v := view.New("view.html", upload.Title)
+    v.Vars["Upload"] = upload
+    v.Vars["Count"] = count
+    v.Vars["CSRF"] = string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key)))
+    v.Vars["Comments"] = comments
+    v.Vars["Tags"] = template.JS(tagData)
+    v.Vars["Session"] = s.Vars
 	v.AddHeader(`
-		<meta property="og:url"			content="https://clearskies.space/view/{{.Id}}" />
-		<meta property="og:type"        content="website" />
-		<meta property="og:title"       content="{{.Title}} - ClearSkies.space" />
-		<meta property="og:description" content="{{.Title}}" />
-		<meta property="og:image"       content="https://clearskies.space/uploads/{{.Id}}" />`,
-		struct {
-			Id    string
-			Title string
-		}{
-			mux.Vars(r)["Id"],
-			upload.Title,
+		<meta property="og:url" content="https://clearskies.space/view/{{.Id}}">
+		<meta property="og:type" content="website">
+		<meta property="og:title" content="{{.Title}} - ClearSkies.space">
+		<meta property="og:description" content="{{.Title}}">
+		<meta property="og:image" content="https://clearskies.space/uploads/{{.Id}}">`,
+		map[string]interface{}{
+			"Id":    mux.Vars(r)["Id"],
+			"Title": upload.Title,
 		},
 	)
 	v.Render(w)
@@ -91,21 +76,14 @@ func ViewPage(w http.ResponseWriter, r *http.Request) {
 
 func UploadPage(w http.ResponseWriter, r *http.Request) {
 	s := session.Get(r)
-	v := view.View{
-		Title: "Upload",
-		File:  "upload.html",
-		Data: struct {
-			Session map[interface{}]interface{}
-		}{
-			s.Vars(),
-		},
-	}
+	v := view.New("upload.html", "Upload")
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	s := session.Get(r)
-	if !s.Vars()["Verified"].(bool) {
+	if !s.Vars["Verified"].(bool) {
 		log.Println("Upload handler: Not verified")
 		w.WriteHeader(500)
 		return
@@ -166,7 +144,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	imageData, _ := ioutil.ReadAll(f)
 	ioutil.WriteFile("static/uploads/"+id, imageData, 0644)
 	user := model.User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Vars()["Username"])
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Vars["Username"])
 	db.Exec(`INSERT INTO uploads (id, title, user_id, description, posted_at, approved)
 		VALUES ($1, $2, $3, $4, $5, $6)`,
 		id, title, user.Id, description, time.Now().UTC(), false,
@@ -190,19 +168,10 @@ func EditPage(w http.ResponseWriter, r *http.Request) {
 	db.Get(&upload, "SELECT * FROM uploads WHERE id = $1", mux.Vars(r)["Id"])
 	db.Get(&upload.Author, "SELECT username FROM users WHERE id = $1", upload.UserId)
 	s := session.Get(r)
-	v := view.View{
-		Title: "Edit",
-		File:  "edit.html",
-		Data: struct {
-			Upload  model.Upload
-			Session map[interface{}]interface{}
-			CSRF    string
-		}{
-			upload,
-			s.Vars(),
-			context.Get(r, "csrf").(string),
-		},
-	}
+	v := view.New("edit.html", "Edit")
+	v.Vars["Upload"] = upload
+	v.Vars["Session"] = s.Vars
+	v.Vars["CSRF"] = context.Get(r, "csrf")
 	v.Render(w)
 }
 
@@ -212,12 +181,12 @@ func Edit(w http.ResponseWriter, r *http.Request) {
 	db.Get(&upload, "SELECT * FROM uploads WHERE id = $1", id)
 	db.Get(&upload.Author, "SELECT username FROM users WHERE id = $1", upload.UserId)
 	s := session.Get(r)
-	if upload.Author.Username != s.Vars()["Username"] {
+	if upload.Author.Username != s.Vars["Username"] {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}
 	user := model.User{}
-	db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"])
+	db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars["Username"])
 	if !utils.CheckExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
 		errorMessage(w, r, "Bad CSRF token.")
 		return
@@ -244,7 +213,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	author := model.User{}
 	db.Get(&author, "SELECT username FROM users WHERE id = $1", upload.UserId)
 	s := session.Get(r)
-	if !s.Vars()["Admin"].(bool) && s.Vars()["Username"] != author.Username {
+	if !s.Vars["Admin"].(bool) && s.Vars["Username"] != author.Username {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}

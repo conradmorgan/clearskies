@@ -18,6 +18,9 @@
   <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
 <![endif]-->
 <link rel="stylesheet" href="/style.css">
+{{range .Headers}}
+    {{.}}
+{{end}}
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
 <script src='https://www.google.com/recaptcha/api.js'></script>
 <script>
@@ -38,9 +41,6 @@ $(document).ready(function() {
     });
 });
 </script>
-{{range .Headers}}
-    {{.}}
-{{end}}
 </head>
 <body>
     <div id="wrap">

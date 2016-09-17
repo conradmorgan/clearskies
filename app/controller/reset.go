@@ -15,24 +15,13 @@ import (
 )
 
 func RecoveryPage(w http.ResponseWriter, r *http.Request) {
-	v := view.View{
-		Title: "Recover",
-		File:  "recover.html",
-	}
 	s := session.Get(r)
-	v.Data = struct {
-		Session map[interface{}]interface{}
-	}{
-		s.Vars(),
-	}
+	v := view.New("recover.html", "Recover Account")
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }
 
 func ResetPage(w http.ResponseWriter, r *http.Request) {
-	v := view.View{
-		Title: "Change Password",
-		File:  "changepassword.html",
-	}
 	resetToken := mux.Vars(r)["Token"]
 	user := model.User{}
 	err := db.Get(&user, "SELECT * FROM users WHERE reset_token = $1", resetToken)
@@ -46,15 +35,9 @@ func ResetPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s := session.Get(r)
-	v.Data = struct {
-		Username   string
-		ResetToken string
-		Session    map[interface{}]interface{}
-	}{
-		user.Username,
-		resetToken,
-		s.Vars(),
-	}
+	v := view.New("changepassword.html", "Change Password")
+	v.Vars["ResetToken"] = resetToken
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }
 

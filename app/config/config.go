@@ -48,6 +48,7 @@ func init() {
 			&Recaptcha,
 		},
 	)
+	log.Printf("\n%#v\n%#v\n%#v\n%#v\n", Server, Mail, Sessions, Recaptcha)
 	if err != nil {
 		log.Fatal("Bad config file: ", err)
 	}

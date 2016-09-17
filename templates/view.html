@@ -28,22 +28,22 @@
             It may be removed if it is not related to astronomy.
             In the meantime, it is still accessible via a <a href="https://clearskies.space/view/{{.Upload.Id}}">direct link</a>.</p>
     {{end}}
-    <h2 style="word-break: break-word">{{.Upload.Title}}</h2>
-    <h3>by
+    <h1 id="title">{{.Upload.Title}}</h1>
+    <h2>by
         <a href="/user/{{.Upload.Author.Username}}">
             {{.Upload.Author.Username}}
         </a>
-    </h3>
+    </h2>
     <p>Uploaded
         <span id="date{{.Upload.Id}}" style="display: none">{{.Upload.FormatedDate}}</span>
     </p>
     <p>{{.Count}} view{{if gt .Count 1}}s{{end}}</p>
     <!--a href="/uploads/{{.Upload.Id}}"-->
-        <div id="image" style="position: relative; overflow: hidden; display: inline-block">
+        <div id="image">
             <img src="/uploads/{{.Upload.Id}}" style="max-width: 100%">
         </div>
     <!--/a-->
-    <p style="word-break: break-word; white-space: pre-wrap; width: 100%; max-width: 500px">{{.Upload.Description}}</p>
+    <p id="description">{{.Upload.Description}}</p>
     {{if eq .Session.Username .Upload.Author.Username}}
         <a href="/edit/{{.Upload.Id}}"><button>&nbsp;&nbsp;Edit&nbsp;&nbsp;</button></a>
     {{end}}

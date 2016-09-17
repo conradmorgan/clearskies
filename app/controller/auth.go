@@ -18,13 +18,9 @@ import (
 )
 
 func LoginPage(w http.ResponseWriter, r *http.Request) {
-	v := view.View{
-		Title: "Login",
-		File:  "login.html",
-	}
 	s := session.Get(r)
 	var notice string
-	if s.Vars()["Username"] == "" && s.Vars()["EmailCode"] != nil {
+	if s.Vars["Username"] == "" && s.Vars["EmailCode"] != nil {
 		notice = "Please log in to complete the verification process."
 	}
 	var attemptsSlice []int
@@ -40,29 +36,17 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	if len(attemptsSlice) >= 1 {
 		attempts = attemptsSlice[0]
 	}
-	v.Data = struct {
-		Notice           string
-		Session          map[interface{}]interface{}
-		IncludeRecaptcha bool
-	}{
-		notice,
-		s.Vars(),
-		attempts >= 3,
-	}
+	v := view.New("login.html", "Log in")
+	v.Vars["Notice"] = notice
+	v.Vars["Session"] = s.Vars
+	v.Vars["IncludeCaptcha"] = (attempts >= 3)
 	v.Render(w)
 }
 
 func SignupPage(w http.ResponseWriter, r *http.Request) {
-	session := session.Get(r)
-	v := view.View{
-		Title: "Signup",
-		File:  "signup.html",
-		Data: struct {
-			Session map[interface{}]interface{}
-		}{
-			session.Vars(),
-		},
-	}
+	s := session.Get(r)
+	v := view.New("signup.html", "Sign up")
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }
 
@@ -116,7 +100,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		user.Id, ip(r),
 	)
 	session := session.Get(r)
-	session.Vars()["AttemptedUserId"] = user.Id
+	session.Vars["AttemptedUserId"] = user.Id
 	session.Save(w)
 	if attempts >= 3 {
 		if !recaptchaTest(r.PostFormValue("g-recaptcha-response")) {
@@ -165,15 +149,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		WHERE user_id = $1 AND ip_address = $2`,
 		user.Id, ip(r),
 	)
-	session.Vars()["SignedIn"] = true
-	session.Vars()["Username"] = username
-	if session.Vars()["EmailCode"] != nil {
-		session.Vars()["Verified"] = checkEmailCode(username, session.Vars()["EmailCode"].(string))
-		delete(session.Vars(), "EmailCode")
+	session.Vars["SignedIn"] = true
+	session.Vars["Username"] = username
+	if session.Vars["EmailCode"] != nil {
+		session.Vars["Verified"] = checkEmailCode(username, session.Vars["EmailCode"].(string))
+		delete(session.Vars, "EmailCode")
 	} else {
-		session.Vars()["Verified"] = user.Verified()
+		session.Vars["Verified"] = user.Verified()
 	}
-	session.Vars()["Admin"] = ("xunatai" == user.Username)
+	session.Vars["Admin"] = ("xunatai" == user.Username)
 	session.Save(w)
 }
 
@@ -309,21 +293,12 @@ func Salt(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(utils.ToHex(utils.DeriveKey("CLIENT_SALT", 16, key))))
 
 }
+
 func ChangePasswordPage(w http.ResponseWriter, r *http.Request) {
-	v := view.View{
-		Title: "Change Password",
-		File:  "changepassword.html",
-	}
-	session := session.Get(r)
-	v.Data = struct {
-		Username   string
-		ResetToken string
-		Session    map[interface{}]interface{}
-	}{
-		session.Vars()["Username"].(string),
-		"",
-		session.Vars(),
-	}
+	s := session.Get(r)
+	v := view.New("changepassword.html", "Change Password")
+	v.Vars["ResetToken"] = ""
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }
 
@@ -342,11 +317,11 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		s := session.Get(r)
-		if s.Vars()["Username"] == "" {
+		if s.Vars["Username"] == "" {
 			log.Println("Change password handler: Not logged in")
 			w.WriteHeader(500)
 			return
-		} else if err := db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"]); err != nil {
+		} else if err := db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars["Username"]); err != nil {
 			log.Print("Change password handler: ", err)
 			w.WriteHeader(500)
 			return

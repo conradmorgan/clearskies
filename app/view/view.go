@@ -8,11 +8,20 @@ import (
 )
 
 type View struct {
-	Title   string
 	File    string
-	Data    interface{}
+	Title   string
+	Vars    map[string]interface{}
 	Headers []template.HTML
 	Content template.HTML
+}
+
+func New(filename, title string) *View {
+	view := View{
+		File:  filename,
+		Title: title,
+		Vars:  make(map[string]interface{}),
+	}
+    return &view
 }
 
 func (v *View) AddHeader(header string, data ...interface{}) {
@@ -35,7 +44,7 @@ func (v *View) Render(w http.ResponseWriter) {
 		log.Fatal(err)
 	}
 	var buf bytes.Buffer
-	err = content.Execute(&buf, v.Data)
+	err = content.Execute(&buf, v.Vars)
 	if err != nil {
 		log.Fatal(err)
 	}

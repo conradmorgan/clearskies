@@ -7,18 +7,10 @@ import (
 )
 
 func errorMessage(w http.ResponseWriter, r *http.Request, errMsg string) {
-	v := view.View{
-		Title: "500",
-		File:  "error.html",
-	}
 	s := session.Get(r)
-	v.Data = struct {
-		ErrorMessage string
-		Session      map[interface{}]interface{}
-	}{
-		errMsg,
-		s.Vars(),
-	}
-	v.Render(w)
+	v := view.New("error.html", "500")
+	v.Vars["ErrorMessage"] = errMsg
+	v.Vars["Session"] = s.Vars
 	w.WriteHeader(500)
+	v.Render(w)
 }

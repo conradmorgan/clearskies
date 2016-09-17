@@ -34,18 +34,9 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s := session.Get(r)
-	v := view.View{
-		Title: "Home",
-		File:  "index.html",
-		Data: struct {
-			Uploads []model.Upload
-			Query   string
-			Session map[interface{}]interface{}
-		}{
-			uploads,
-			query,
-			s.Vars(),
-		},
-	}
+	v := view.New("index.html", "Home")
+	v.Vars["Uploads"] = uploads
+	v.Vars["Query"] = query
+	v.Vars["Session"] = s.Vars
 	v.Render(w)
 }

@@ -27,29 +27,27 @@ func init() {
 }
 
 type Session struct {
+	Vars    map[interface{}]interface{}
 	session *sessions.Session
 	request *http.Request
 }
 
 func Get(r *http.Request) *Session {
 	session, _ := store.Get(r, "session")
-	s := Session{session, r}
-	if _, ok := s.Vars()["SignedIn"]; !ok {
-		s.Vars()["SignedIn"] = false
-		s.Vars()["Username"] = ""
+	s := Session{session: session, request: r}
+	s.Vars = session.Values
+	if _, ok := s.Vars["SignedIn"]; !ok {
+		s.Vars["SignedIn"] = false
+		s.Vars["Username"] = ""
 	}
-	if _, ok := s.Vars()["Verified"]; !ok {
-		s.Vars()["Verified"] = false
+	if _, ok := s.Vars["Verified"]; !ok {
+		s.Vars["Verified"] = false
 	}
-	if _, ok := s.Vars()["Admin"]; !ok {
-		s.Vars()["Admin"] = false
+	if _, ok := s.Vars["Admin"]; !ok {
+		s.Vars["Admin"] = false
 	}
 	s.session.Options.HttpOnly = true
 	return &s
-}
-
-func (s *Session) Vars() map[interface{}]interface{} {
-	return s.session.Values
 }
 
 func (s *Session) Save(w http.ResponseWriter) {

@@ -23,8 +23,8 @@ func Comment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	db.Get(&upload.Author, "SELECT id, email, comment_notify FROM users WHERE id = $1", upload.UserId)
-	session := session.Get(r)
-	if !session.Values["Verified"].(bool) {
+	s := session.Get(r)
+	if !s.Vars()["Verified"].(bool) {
 		log.Println("Comment handler: Not verified")
 		w.WriteHeader(500)
 		return
@@ -36,7 +36,7 @@ func Comment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := model.User{}
-	db.Get(&user, "SELECT id, username, key FROM users WHERE username = $1", session.Values["Username"])
+	db.Get(&user, "SELECT id, username, key FROM users WHERE username = $1", s.Vars()["Username"])
 	comment := r.PostFormValue("comment")
 	if !utils.CheckExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
 		log.Print("Comment handler: Bad CSRF token")
@@ -79,15 +79,15 @@ func DeleteComment(w http.ResponseWriter, r *http.Request) {
 		errorMessage(w, r, "Comment does not exist!")
 		return
 	}
-	session := session.Get(r)
+	s := session.Get(r)
 	user := model.User{}
-	db.Get(&user, "SELECT id, key FROM users WHERE username = $1", session.Values["Username"])
+	db.Get(&user, "SELECT id, key FROM users WHERE username = $1", s.Vars()["Username"])
 	if !utils.CheckExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
 		log.Print("COmment handler: Bad CSRF token")
 		errorMessage(w, r, "CSRF tokens have expired, please go back and refresh the page.")
 		return
 	}
-	if !session.Values["Admin"].(bool) && user.Id != comment.UserId {
+	if !session.Vars()["Admin"].(bool) && user.Id != comment.UserId {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}

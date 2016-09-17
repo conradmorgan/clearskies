@@ -8,8 +8,8 @@ import (
 )
 
 func ApproveUpload(w http.ResponseWriter, r *http.Request) {
-	session := session.Get(r)
-	if !session.Values["Admin"].(bool) {
+	s := session.Get(r)
+	if !s.Vars()["Admin"].(bool) {
 		return
 	}
 	id := mux.Vars(r)["Id"]

@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"clearskies/app/database"
 	"clearskies/app/model"
 	"clearskies/app/session"
 	"clearskies/app/utils"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"regexp"
@@ -30,24 +32,36 @@ func Serve() {
 		time.Sleep(24 * time.Hour)
 	}()
 	router := routes()
-	serveMux := http.NewServeMux()
 	thumb := regexp.MustCompile(`^/thumbnails/[a-zA-Z0-9]{5}$`)
-	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var body []byte
+		// Filter out thumbnail spam.
 		if !thumb.MatchString(r.RequestURI) {
-			log.Print(ip(r), ": ", r.Method, " ", r.RequestURI)
+			// Don't parse requests that are expected to be large.
+			if !(r.RequestURI == "/upload" && r.Method == "POST") {
+				// Read r.Body and parse form for logging form values.
+				if r.Body != nil {
+					body, _ = ioutil.ReadAll(r.Body)
+				}
+				r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				r.ParseForm()
+			}
+			log.Print(ip(r), ": ", r.Method, " ", r.RequestURI, " ", r.Form)
+			if !(r.RequestURI == "/upload" && r.Method == "POST") {
+				// Restore original state.
+				r.Form = nil
+				r.PostForm = nil
+				r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			}
 		}
 		s := session.Get(r)
 		user := model.User{}
 		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Values["Username"])
 		context.Set(r, "csrf", string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))))
 		s.Options.HttpOnly = true
-		s.Save(r, w)
+		s.Save(w)
 		router.ServeHTTP(w, r)
 	})
-	server := http.Server{
-		Addr:    "127.0.0.1:9090",
-		Handler: serveMux,
-	}
 	log.Print("Listening on port ", "9090", "...")
-	server.ListenAndServe()
+	http.ListenAndServe("127.0.0.1:9090", nil)
 }

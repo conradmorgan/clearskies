@@ -49,7 +49,7 @@ func ViewPage(w http.ResponseWriter, r *http.Request) {
 	upload.FormatedDate = utils.FormatDate(upload.PostedAt)
 	s := session.Get(r)
 	user := model.User{}
-	db.Get(&user, "SELECT key FROM users WHERE username = $1", s.Values["Username"])
+	db.Get(&user, "SELECT key FROM users WHERE username = $1", s.Vars()["Username"])
 	tags := []Tag{}
 	db.Select(&tags, "SELECT * FROM tags WHERE upload_id = $1", mux.Vars(r)["Id"])
 	tagData, _ := json.Marshal(tags)
@@ -69,7 +69,7 @@ func ViewPage(w http.ResponseWriter, r *http.Request) {
 			string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))),
 			comments,
 			template.JS(tagData),
-			s.Values,
+			s.Vars(),
 		},
 	}
 	v.AddHeader(`
@@ -97,7 +97,7 @@ func UploadPage(w http.ResponseWriter, r *http.Request) {
 		Data: struct {
 			Session map[interface{}]interface{}
 		}{
-			s.Values,
+			s.Vars(),
 		},
 	}
 	v.Render(w)
@@ -105,7 +105,7 @@ func UploadPage(w http.ResponseWriter, r *http.Request) {
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	s := session.Get(r)
-	if !s.Values["Verified"].(bool) {
+	if !s.Vars()["Verified"].(bool) {
 		log.Println("Upload handler: Not verified")
 		w.WriteHeader(500)
 		return
@@ -166,7 +166,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	imageData, _ := ioutil.ReadAll(f)
 	ioutil.WriteFile("static/uploads/"+id, imageData, 0644)
 	user := model.User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Values["Username"])
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Vars()["Username"])
 	db.Exec(`INSERT INTO uploads (id, title, user_id, description, posted_at, approved)
 		VALUES ($1, $2, $3, $4, $5, $6)`,
 		id, title, user.Id, description, time.Now().UTC(), false,
@@ -199,7 +199,7 @@ func EditPage(w http.ResponseWriter, r *http.Request) {
 			CSRF    string
 		}{
 			upload,
-			s.Values,
+			s.Vars(),
 			context.Get(r, "csrf").(string),
 		},
 	}
@@ -212,12 +212,12 @@ func Edit(w http.ResponseWriter, r *http.Request) {
 	db.Get(&upload, "SELECT * FROM uploads WHERE id = $1", id)
 	db.Get(&upload.Author, "SELECT username FROM users WHERE id = $1", upload.UserId)
 	s := session.Get(r)
-	if upload.Author.Username != s.Values["Username"] {
+	if upload.Author.Username != s.Vars()["Username"] {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}
 	user := model.User{}
-	db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Values["Username"])
+	db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"])
 	if !utils.CheckExpiryCode(r.PostFormValue("csrf"), "CSRF", user.Key) {
 		errorMessage(w, r, "Bad CSRF token.")
 		return
@@ -244,7 +244,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	author := model.User{}
 	db.Get(&author, "SELECT username FROM users WHERE id = $1", upload.UserId)
 	s := session.Get(r)
-	if !s.Values["Admin"].(bool) && s.Values["Username"] != author.Username {
+	if !s.Vars()["Admin"].(bool) && s.Vars()["Username"] != author.Username {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}

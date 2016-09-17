@@ -44,7 +44,7 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 		}{
 			uploads,
 			query,
-			s.Values,
+			s.Vars(),
 		},
 	}
 	v.Render(w)

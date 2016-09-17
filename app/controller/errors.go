@@ -17,7 +17,7 @@ func errorMessage(w http.ResponseWriter, r *http.Request, errMsg string) {
 		Session      map[interface{}]interface{}
 	}{
 		errMsg,
-		s.Values,
+		s.Vars(),
 	}
 	v.Render(w)
 	w.WriteHeader(500)

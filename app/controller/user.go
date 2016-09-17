@@ -25,7 +25,7 @@ func UserPage(w http.ResponseWriter, r *http.Request) {
 		}{
 			uploads,
 			user,
-			s.Values,
+			s.Vars(),
 		},
 	}
 	v.Render(w)

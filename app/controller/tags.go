@@ -35,7 +35,7 @@ func ClearTags(w http.ResponseWriter, r *http.Request) {
 	}
 	s := session.Get(r)
 	user := model.User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Values["Username"])
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Vars()["Username"])
 	if upload.UserId != user.Id {
 		log.Print("Save tags handler: Prohibited")
 		w.WriteHeader(500)
@@ -58,7 +58,7 @@ func SaveTags(w http.ResponseWriter, r *http.Request) {
 	}
 	s := session.Get(r)
 	user := model.User{}
-	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Values["Username"])
+	db.Get(&user, "SELECT id FROM users WHERE username = $1", s.Vars()["Username"])
 	if upload.UserId != user.Id {
 		log.Print("Save tags handler: Prohibited")
 		w.WriteHeader(500)
@@ -190,7 +190,7 @@ func (c CoordinateSystem) RADecToImagePoint(raDec RADec) Vector {
 var tap = "http://simbad.u-strasbg.fr/simbad/sim-tap/sync"
 
 func tapQuery(query string) []byte {
-	v := url.Values{}
+	v := url.Vars(){}
 	v.Add("request", "doQuery")
 	v.Add("lang", "adql")
 	v.Add("format", "json")

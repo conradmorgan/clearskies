@@ -23,7 +23,7 @@ func RecoveryPage(w http.ResponseWriter, r *http.Request) {
 	v.Data = struct {
 		Session map[interface{}]interface{}
 	}{
-		s.Values,
+		s.Vars(),
 	}
 	v.Render(w)
 }
@@ -53,7 +53,7 @@ func ResetPage(w http.ResponseWriter, r *http.Request) {
 	}{
 		user.Username,
 		resetToken,
-		s.Values,
+		s.Vars(),
 	}
 	v.Render(w)
 }

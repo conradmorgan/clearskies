@@ -24,7 +24,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 	s := session.Get(r)
 	var notice string
-	if s.Values["Username"] == "" && s.Values["EmailCode"] != nil {
+	if s.Vars()["Username"] == "" && s.Vars()["EmailCode"] != nil {
 		notice = "Please log in to complete the verification process."
 	}
 	var attemptsSlice []int
@@ -46,7 +46,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 		IncludeRecaptcha bool
 	}{
 		notice,
-		s.Values,
+		s.Vars(),
 		attempts >= 3,
 	}
 	v.Render(w)
@@ -60,7 +60,7 @@ func SignupPage(w http.ResponseWriter, r *http.Request) {
 		Data: struct {
 			Session map[interface{}]interface{}
 		}{
-			session.Values,
+			session.Vars(),
 		},
 	}
 	v.Render(w)
@@ -116,7 +116,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		user.Id, ip(r),
 	)
 	session := session.Get(r)
-	session.Values["AttemptedUserId"] = user.Id
+	session.Vars()["AttemptedUserId"] = user.Id
 	session.Save(r, w)
 	if attempts >= 3 {
 		if !recaptchaTest(r.PostFormValue("g-recaptcha-response")) {
@@ -165,15 +165,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		WHERE user_id = $1 AND ip_address = $2`,
 		user.Id, ip(r),
 	)
-	session.Values["SignedIn"] = true
-	session.Values["Username"] = username
-	if session.Values["EmailCode"] != nil {
-		session.Values["Verified"] = checkEmailCode(username, session.Values["EmailCode"].(string))
-		delete(session.Values, "EmailCode")
+	session.Vars()["SignedIn"] = true
+	session.Vars()["Username"] = username
+	if session.Vars()["EmailCode"] != nil {
+		session.Vars()["Verified"] = checkEmailCode(username, session.Vars()["EmailCode"].(string))
+		delete(session.Vars(), "EmailCode")
 	} else {
-		session.Values["Verified"] = user.Verified()
+		session.Vars()["Verified"] = user.Verified()
 	}
-	session.Values["Admin"] = ("xunatai" == user.Username)
+	session.Vars()["Admin"] = ("xunatai" == user.Username)
 	session.Save(r, w)
 }
 
@@ -320,9 +320,9 @@ func ChangePasswordPage(w http.ResponseWriter, r *http.Request) {
 		ResetToken string
 		Session    map[interface{}]interface{}
 	}{
-		session.Values["Username"].(string),
+		session.Vars()["Username"].(string),
 		"",
-		session.Values,
+		session.Vars(),
 	}
 	v.Render(w)
 }
@@ -341,12 +341,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		session := session.Get(r)
-		if session.Values["Username"] == "" {
+		s := session.Get(r)
+		if s.Vars()["Username"] == "" {
 			log.Println("Change password handler: Not logged in")
 			w.WriteHeader(500)
 			return
-		} else if err := db.Get(&user, "SELECT * FROM users WHERE username = $1", session.Values["Username"]); err != nil {
+		} else if err := db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"]); err != nil {
 			log.Print("Change password handler: ", err)
 			w.WriteHeader(500)
 			return

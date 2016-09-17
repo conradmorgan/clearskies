@@ -56,12 +56,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	passcode := r.PostFormValue("passcode")
 	if !validation.ValidUsername(usernameOrEmail) && !validation.ValidEmail(usernameOrEmail) {
 		log.Println("Invalid username or email: " + usernameOrEmail)
-		w.WriteHeader(500)
-		return
-	}
-	if !validation.ValidHexKey(passcode) {
-		log.Println("Invalid passcode: " + passcode)
-		w.WriteHeader(500)
+		errorMessage(w, r, "Invalid username or email.")
 		return
 	}
 	user := model.User{}
@@ -218,7 +213,7 @@ func Salt(w http.ResponseWriter, r *http.Request) {
 	var key []byte
 	if err == sql.ErrNoRows {
 		key = utils.CryptoRand(16)
-		db.Exec(
+		_, err := db.Exec(
 			`INSERT INTO users (
 				username,
 				email,
@@ -229,10 +224,14 @@ func Salt(w http.ResponseWriter, r *http.Request) {
 				created_at,
 				signed_up_at,
 				verified_at,
-				admin
+				admin,
+				comment_notify
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 			username, email, "", "", "", utils.ToHex(key), time.Now().UTC(), time.Time{}, time.Time{}, false, true,
 		)
+		if err != nil {
+			log.Print("Salt handler: ", err)
+		}
 	} else {
 		key = utils.FromHex(user.Key)
 	}

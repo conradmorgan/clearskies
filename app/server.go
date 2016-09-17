@@ -32,16 +32,6 @@ func Serve() {
 			log.Print(ip(r), ": ", r.Method, " ", r.RequestURI)
 		}
 		s := session.Get(r)
-		if _, ok := s.Values["SignedIn"]; !ok {
-			s.Values["SignedIn"] = false
-			s.Values["Username"] = ""
-		}
-		if _, ok := s.Values["Verified"]; !ok {
-			s.Values["Verified"] = false
-		}
-		if _, ok := s.Values["Admin"]; !ok {
-			s.Values["Admin"] = false
-		}
 		user := model.User{}
 		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Values["Username"])
 		context.Set(r, "csrf", string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))))

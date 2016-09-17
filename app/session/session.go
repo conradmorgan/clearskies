@@ -21,6 +21,17 @@ func init() {
 }
 
 func Get(r *http.Request) *sessions.Session {
-	session, _ := store.Get(r, "session")
-	return session
+	s, _ := store.Get(r, "session")
+	if _, ok := s.Values["SignedIn"]; !ok {
+		s.Values["SignedIn"] = false
+		s.Values["Username"] = ""
+	}
+	if _, ok := s.Values["Verified"]; !ok {
+		s.Values["Verified"] = false
+	}
+	if _, ok := s.Values["Admin"]; !ok {
+		s.Values["Admin"] = false
+	}
+	s.Options.HttpOnly = true
+	return s
 }

@@ -87,7 +87,7 @@ func DeleteComment(w http.ResponseWriter, r *http.Request) {
 		errorMessage(w, r, "CSRF tokens have expired, please go back and refresh the page.")
 		return
 	}
-	if !session.Vars()["Admin"].(bool) && user.Id != comment.UserId {
+	if !s.Vars()["Admin"].(bool) && user.Id != comment.UserId {
 		errorMessage(w, r, "Prohibited.")
 		return
 	}

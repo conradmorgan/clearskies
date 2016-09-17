@@ -117,7 +117,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	)
 	session := session.Get(r)
 	session.Vars()["AttemptedUserId"] = user.Id
-	session.Save(r, w)
+	session.Save(w)
 	if attempts >= 3 {
 		if !recaptchaTest(r.PostFormValue("g-recaptcha-response")) {
 			log.Println("Login handler: Robot alert!")
@@ -174,13 +174,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		session.Vars()["Verified"] = user.Verified()
 	}
 	session.Vars()["Admin"] = ("xunatai" == user.Username)
-	session.Save(r, w)
+	session.Save(w)
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
-	session := session.Get(r)
-	session.Options.MaxAge = -1
-	session.Save(r, w)
+	s := session.Get(r)
+	s.Delete()
+	s.Save(w)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

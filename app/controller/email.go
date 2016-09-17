@@ -35,12 +35,12 @@ func Verify(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			s.Vars()["Verified"] = true
-			s.Save(r, w)
+			s.Save(w)
 			http.Redirect(w, r, "/", http.StatusFound)
 		}
 	} else {
 		s.Vars()["EmailCode"] = mux.Vars(r)["EmailCode"]
-		s.Save(r, w)
+		s.Save(w)
 		http.Redirect(w, r, "/login", http.StatusFound)
 	}
 }

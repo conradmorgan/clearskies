@@ -56,9 +56,8 @@ func Serve() {
 		}
 		s := session.Get(r)
 		user := model.User{}
-		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Values["Username"])
+		db.Get(&user, "SELECT * FROM users WHERE username = $1", s.Vars()["Username"])
 		context.Set(r, "csrf", string(utils.DeriveExpiryCode("CSRF", 0, utils.FromHex(user.Key))))
-		s.Options.HttpOnly = true
 		s.Save(w)
 		router.ServeHTTP(w, r)
 	})

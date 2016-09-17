@@ -42,10 +42,14 @@ func Get(r *http.Request) *Session {
 	return &s
 }
 
-func (s *session) Vars() map[interface{}]interface{} {
+func (s *Session) Vars() map[interface{}]interface{} {
 	return s.session.Values
 }
 
 func (s *Session) Save(w http.ResponseWriter) {
 	s.session.Save(s.request, w)
+}
+
+func (s *Session) Delete() {
+	s.session.Options.MaxAge = -1
 }

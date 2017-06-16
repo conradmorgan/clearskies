@@ -1,4 +1,4 @@
-#ClearSkies
+A simple image uploading service written in Go. An instance of it is running here: https://clearskies.space
 
 `go get github.com/xunatai/clearskies`
 

@@ -1,4 +1,4 @@
-A simple image uploading service written in Go.
+A simple image uploading service written in Go. Officially hosted at [clearskies.space](https://clearskies.space).
 
 `go get github.com/conradmorgan/clearskies`
 
